@@ -8,7 +8,7 @@ Módulos incluidos:
 - tuttifrutti-client
 - tuttifrutti-ui
 
-Cómo ejecutar (necesitas Maven y JDK 17+):
+Cómo ejecutar (necesitas Maven y JDK 21LTS):
 
 - Ejecutar servidor (desde la raíz del proyecto):
   ./run-server.sh
