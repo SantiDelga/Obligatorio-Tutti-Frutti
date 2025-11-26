@@ -1,0 +1,4 @@
+com\tf\server\core\PlayerManager.class
+com\tf\server\net\ClientHandler.class
+com\tf\server\net\GameServer.class
+com\tf\server\core\GameManager.class

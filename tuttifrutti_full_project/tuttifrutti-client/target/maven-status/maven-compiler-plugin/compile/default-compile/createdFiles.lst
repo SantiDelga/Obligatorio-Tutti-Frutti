@@ -1,0 +1,4 @@
+com\tf\client\LoginClient.class
+com\tf\client\state\PlayerState.class
+com\tf\client\net\ClientConnection.class
+com\tf\client\TestClient.class

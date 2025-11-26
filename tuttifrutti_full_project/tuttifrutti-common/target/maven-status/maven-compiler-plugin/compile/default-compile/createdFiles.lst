@@ -1,0 +1,6 @@
+com\tf\common\dto\LoginRequest.class
+com\tf\common\model\Palabra.class
+com\tf\common\config\GameConfig.class
+com\tf\common\dto\LoginResponse.class
+com\tf\common\dto\StartGameRequest.class
+com\tf\common\model\Categoria.class

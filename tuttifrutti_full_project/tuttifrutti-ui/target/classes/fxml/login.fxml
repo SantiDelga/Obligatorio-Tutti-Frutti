@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+
+<VBox spacing="15" alignment="CENTER"
+      xmlns="http://javafx.com/javafx/20.0.2"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.tf.ui.controllers.LoginController">
+
+    <padding>
+        <Insets top="30" right="30" bottom="30" left="30" />
+    </padding>
+
+    <Label text="TuttiFrutti - Login" style="-fx-font-size: 22px; -fx-font-weight: bold;" />
+
+    <!-- Nombre -->
+    <TextField fx:id="txtName"
+               promptText="Ingrese su nombre"
+               maxWidth="250" />
+
+    <!-- Botón -->
+    <Button text="Ingresar"
+            maxWidth="150"
+            onAction="#onLoginButtonClicked" />
+
+    <!-- Estado -->
+    <Label fx:id="errorLabel" textFill="red" />
+
+</VBox>
