@@ -7,12 +7,17 @@ import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
-import javafx.scene.control.TextArea;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
+import javafx.stage.Stage;
 import javafx.util.Duration;
 import uy.edu.tuttifrutti.app.SessionContext;
 import uy.edu.tuttifrutti.application.singleplayer.SinglePlayerGameService;
@@ -44,9 +49,19 @@ public class JuegoController {
     private GridPane categoriasGrid;
 
     @FXML
-    private TextArea resultadoArea;
+    private TableView<ResultadoItem> resultTable;
+
+    @FXML
+    private TableColumn<ResultadoItem,String> colCategoriaRight;
+
+    @FXML
+    private TableColumn<ResultadoItem,String> colRespuestaRight;
+
+    @FXML
+    private TableColumn<ResultadoItem,String> colValidaRight;
 
     private final ObservableList<TextField> camposCategorias = FXCollections.observableArrayList();
+    private final ObservableList<ResultadoItem> resultadosData = FXCollections.observableArrayList();
 
     private Timeline timeline;
     private int duracionSegundos;
@@ -82,6 +97,56 @@ public class JuegoController {
         );
         tuttiFruttiButton.disableProperty().bind(todosValidos.not());
 
+        // Inicializar tabla de resultados en la derecha con placeholders
+        colCategoriaRight.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("categoria"));
+        colRespuestaRight.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("respuestaUsuario"));
+        colValidaRight.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("valida"));
+
+        // Forzar texto negro y legible en la tabla derecha
+        colCategoriaRight.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) setText(null);
+                else {
+                    setText(item);
+                    setStyle("-fx-text-fill: black; -fx-font-size: 12px;");
+                }
+            }
+        });
+        colRespuestaRight.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) setText(null);
+                else {
+                    setText(item);
+                    setStyle("-fx-text-fill: black; -fx-font-size: 12px;");
+                }
+            }
+        });
+        colValidaRight.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) setText(null);
+                else {
+                    setText(item);
+                    setStyle("-fx-text-fill: black; -fx-font-weight: bold; -fx-font-size: 12px;");
+                }
+            }
+        });
+
+        // Placeholder inicial: los mismos nombres de categorías con respuesta vacía y valida placeholder
+        resultadosData.addAll(
+                new ResultadoItem("Animal", "", "SI"),
+                new ResultadoItem("Color", "", "SI"),
+                new ResultadoItem("País", "", "SI"),
+                new ResultadoItem("Fruta", "", "SI"),
+                new ResultadoItem("Objeto", "", "SI")
+        );
+        resultTable.setItems(resultadosData);
+
         iniciarNuevaRonda();
     }
 
@@ -110,7 +175,11 @@ public class JuegoController {
         letraLabel.setText(String.valueOf(letraActual));
 
         camposCategorias.forEach(tf -> tf.setText(""));
-        resultadoArea.clear();
+        // Actualizar tabla derecha con las respuestas vacías
+        for (int i = 0; i < resultadosData.size(); i++) {
+            resultadosData.get(i).setRespuestaUsuario("");
+            resultadosData.get(i).setValida("SI"); // placeholder
+        }
 
         duracionSegundos = gameService.getConfig().getDuracionSegundos();
         tiempoRestante = duracionSegundos;
@@ -165,7 +234,25 @@ public class JuegoController {
         if (timeline != null) {
             timeline.stop();
         }
-        enviarRespuestasYMostrarResultado(true);
+        // Generar resultados y actualizar la tabla lateral de resultados (sin ventana emergente)
+        List<Categoria> categorias = gameService.getConfig().getCategoriasActivas();
+        List<ResultadoItem> resultados = new java.util.ArrayList<>();
+        for (int i = 0; i < categorias.size(); i++) {
+            String cat = categorias.get(i).getNombre();
+            String resp = camposCategorias.get(i).getText();
+            String valida = "SI"; // placeholder; el juez AI actualizará este campo posteriormente
+            resultados.add(new ResultadoItem(cat, resp, valida));
+        }
+        // Reemplaza los datos en la tabla lateral
+        resultadosData.setAll(resultados);
+    }
+
+    /**
+     * Método público que permitirá al juez AI actualizar las validaciones en la tabla lateral.
+     * Reemplaza la lista completa de resultados.
+     */
+    public void actualizarValidacion(List<ResultadoItem> nuevos) {
+        resultadosData.setAll(nuevos);
     }
 
     @FXML
@@ -177,6 +264,12 @@ public class JuegoController {
     }
 
     private void enviarRespuestasYMostrarResultado(boolean esTuttiFrutti) {
+        // Mantenemos este método por compatibilidad interna si se invoca desde otro lugar
+        String resultados = generarResultadosTexto(esTuttiFrutti);
+        //resultadoArea.setText(resultados);
+    }
+
+    private String generarResultadosTexto(boolean esTuttiFrutti) {
         Map<Categoria, String> respuestas = new HashMap<>();
         List<Categoria> categorias = gameService.getConfig().getCategoriasActivas();
         for (int i = 0; i < categorias.size(); i++) {
@@ -200,8 +293,9 @@ public class JuegoController {
             sb.append("(La ronda terminó por tiempo o rendición)\n");
         }
 
-        resultadoArea.setText(sb.toString());
+        return sb.toString();
     }
+
 
     @FXML
     private void onReintentar() {

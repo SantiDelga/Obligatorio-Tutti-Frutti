@@ -32,16 +32,16 @@
                         </image>
                     </ImageView>
 
-                    <Button text="CREAR UNA SALA"
+                    <Button text="JUGAR"
                             maxWidth="320.0"
                             prefHeight="50.0"
-                            onAction="#onCrearSala"
+                            onAction="#onJugar"
                             styleClass="tutti-button"/>
 
-                    <Button text="UNIRSE A UNA SALA"
+                    <Button text="CONFIGURACIÓN"
                             maxWidth="320.0"
                             prefHeight="50.0"
-                            onAction="#onUnirseSala"
+                            onAction="#onConfigurar"
                             styleClass="tutti-button"/>
                 </VBox>
             </center>

@@ -6,7 +6,7 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 import java.io.IOException;
-import java.util.Objects;
+import java.net.URL;
 
 public class SceneManager {
 
@@ -43,19 +43,23 @@ public class SceneManager {
     }
 
 
+    // Reemplazar/actualizar método setScene por la versión más robusta:
     private void setScene(String fxmlPath) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
+            URL fxmlUrl = getClass().getResource(fxmlPath);
+            if (fxmlUrl == null) {
+                throw new RuntimeException("FXML no encontrado: " + fxmlPath + " (comprueba src/main/resources)");
+            }
+            FXMLLoader loader = new FXMLLoader(fxmlUrl);
             Parent root = loader.load();
 
             Scene scene = new Scene(root);
 
-            // 👉 AQUÍ forzamos a cargar el CSS siempre
-            scene.getStylesheets().add(
-                    Objects.requireNonNull(
-                            getClass().getResource("/ui/css/tutti-frutti.css")
-                    ).toExternalForm()
-            );
+            // Cargar CSS si existe (no forzar NPE)
+            URL cssUrl = getClass().getResource("/ui/css/tutti-frutti.css");
+            if (cssUrl != null) {
+                scene.getStylesheets().add(cssUrl.toExternalForm());
+            }
 
             primaryStage.setScene(scene);
             primaryStage.show();

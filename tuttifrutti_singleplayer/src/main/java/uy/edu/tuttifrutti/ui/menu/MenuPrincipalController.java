@@ -6,14 +6,12 @@ import uy.edu.tuttifrutti.app.SceneManager;
 public class MenuPrincipalController {
 
     @FXML
-    private void onCrearSala() {
-        // Por ahora vamos directo al juego single player con config default
-        SceneManager.getInstance().showConfigSala();
+    private void onJugar() {
+        SceneManager.getInstance().showJuego();
     }
 
     @FXML
-    private void onUnirseSala() {
-        // En esta versión solo jugador único, se podría luego mostrar lobby
-        SceneManager.getInstance().showJuego();
+    private void onConfigurar() {
+        SceneManager.getInstance().showConfigSala();
     }
 }

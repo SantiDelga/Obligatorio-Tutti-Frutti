@@ -63,9 +63,13 @@
         <VBox spacing="10.0" BorderPane.alignment="CENTER">
             <children>
                 <Label text="Resultado" styleClass="pill-label"/>
-                <TextArea fx:id="resultadoArea" prefWidth="250.0" prefHeight="400.0"
-                          wrapText="true"
-                          styleClass="result-area"/>
+                <TableView fx:id="resultTable" id="resultTable" prefWidth="250.0" prefHeight="400.0">
+                    <columns>
+                        <TableColumn fx:id="colCategoriaRight" text="Categoría" prefWidth="120.0" />
+                        <TableColumn fx:id="colRespuestaRight" text="Respuesta" prefWidth="80.0" />
+                        <TableColumn fx:id="colValidaRight" text="Valida" prefWidth="50.0" />
+                    </columns>
+                </TableView>
             </children>
         </VBox>
     </right>

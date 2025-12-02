@@ -269,8 +269,41 @@
     -fx-control-inner-background: #204a68;
 }
 
+/* TableView de resultados en el lateral (id resultTable) */
+#resultTable {
+    -fx-background-color: transparent; /* hereda el fondo de la app */
+    -fx-control-inner-background: transparent;
+    -fx-table-cell-border-color: transparent; /* intenta ocultar las líneas */
+}
 
+#resultTable .column-header-background {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
 
+#resultTable .column-header .label {
+    -fx-font-family: "TTMilks";
+    -fx-font-weight: bold;
+    -fx-text-fill: black; /* encabezados en negro para legibilidad */
+    -fx-font-size: 14px;
+}
 
+#resultTable .table-row-cell {
+    -fx-background-color: transparent;
+}
 
+#resultTable .table-cell {
+    -fx-background-color: transparent; /* transparente para mostrar fondo de app */
+    -fx-border-color: transparent; /* border invisible */
+    -fx-text-fill: black; /* texto en negro */
+    -fx-font-family: "TTMilks"; /* misma fuente que el título */
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 8 6 8;
+}
 
+/* Si por alguna razón no se pueden ocultar bordes, hacerlos blancos (suaves) */
+#resultTable .table-cell:filled {
+    -fx-border-color: white;
+    -fx-border-width: 0 0 0 0;
+}

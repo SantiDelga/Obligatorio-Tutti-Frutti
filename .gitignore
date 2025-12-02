@@ -1,0 +1,14 @@
+# IntelliJ IDEA
+# Ignore project files and workspace
+.idea/
+*.iml
+
+# Build outputs
+# Ignore common Java/IDE build folders (any level)
+out/
+build/
+target/
+
+# Keep existing ignored entries (from .idea/.gitignore)
+/shelf/
+/workspace.xml
