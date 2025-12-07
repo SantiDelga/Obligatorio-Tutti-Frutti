@@ -8,8 +8,11 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
@@ -17,8 +20,12 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import uy.edu.tuttifrutti.app.SceneManager;
 import uy.edu.tuttifrutti.app.SessionContext;
 import uy.edu.tuttifrutti.application.singleplayer.SinglePlayerGameService;
 import uy.edu.tuttifrutti.application.singleplayer.SinglePlayerRoundResult;
@@ -60,6 +67,10 @@ public class JuegoController {
     @FXML
     private TableColumn<ResultadoItem,String> colValidaRight;
 
+    // Label para mostrar el nombre del jugador junto al título
+    @FXML
+    private Label playerNameLabel;
+
     private final ObservableList<TextField> camposCategorias = FXCollections.observableArrayList();
     private final ObservableList<ResultadoItem> resultadosData = FXCollections.observableArrayList();
 
@@ -88,6 +99,12 @@ public class JuegoController {
         }
         Jugador jugador = new Jugador(nombre);
         gameService = new SinglePlayerGameService(jugador, config);
+
+        // Setear nombre en la UI (label junto al título)
+        if (playerNameLabel != null) {
+            playerNameLabel.setText(jugador.getNombre());
+            playerNameLabel.setStyle("-fx-text-fill: white; -fx-font-family: 'TTMilks'; -fx-font-size: 22px; -fx-font-weight: bold;");
+        }
 
         construirCamposCategorias(config.getCategoriasActivas());
 
@@ -139,11 +156,11 @@ public class JuegoController {
 
         // Placeholder inicial: los mismos nombres de categorías con respuesta vacía y valida placeholder
         resultadosData.addAll(
-                new ResultadoItem("Animal", "", "SI"),
-                new ResultadoItem("Color", "", "SI"),
-                new ResultadoItem("País", "", "SI"),
-                new ResultadoItem("Fruta", "", "SI"),
-                new ResultadoItem("Objeto", "", "SI")
+                new ResultadoItem("Animal", "", ""),
+                new ResultadoItem("Color", "", ""),
+                new ResultadoItem("País", "", ""),
+                new ResultadoItem("Fruta", "", ""),
+                new ResultadoItem("Objeto", "", "")
         );
         resultTable.setItems(resultadosData);
 
@@ -178,7 +195,7 @@ public class JuegoController {
         // Actualizar tabla derecha con las respuestas vacías
         for (int i = 0; i < resultadosData.size(); i++) {
             resultadosData.get(i).setRespuestaUsuario("");
-            resultadosData.get(i).setValida("SI"); // placeholder
+            resultadosData.get(i).setValida(""); // placeholder vacío hasta que el jugador presione TUTTI FRUTTI
         }
 
         duracionSegundos = gameService.getConfig().getDuracionSegundos();
@@ -240,11 +257,84 @@ public class JuegoController {
         for (int i = 0; i < categorias.size(); i++) {
             String cat = categorias.get(i).getNombre();
             String resp = camposCategorias.get(i).getText();
-            String valida = "SI"; // placeholder; el juez AI actualizará este campo posteriormente
+            // Si ya existe una validación en la tabla, la usamos; en caso contrario usamos el placeholder "SI"
+            String valida = "SI";
+            if (i < resultadosData.size() && resultadosData.get(i).getCategoria().equals(cat) && resultadosData.get(i).getValida()!=null && !resultadosData.get(i).getValida().isBlank()) {
+                valida = resultadosData.get(i).getValida();
+            }
             resultados.add(new ResultadoItem(cat, resp, valida));
         }
         // Reemplaza los datos en la tabla lateral
         resultadosData.setAll(resultados);
+
+        // Comprobar victoria: todos los campos deben tener valida == "SI"
+        boolean todosSi = resultados.stream().allMatch(r -> "SI".equalsIgnoreCase(r.getValida()));
+
+        if (todosSi) {
+            // Mostrar diálogo temático de victoria
+            showThemedDialog("Victoria", "¡Correcto!", "Todas las respuestas son válidas. Iniciando nueva ronda...", false, () -> {
+                iniciarNuevaRonda();
+            });
+        } else {
+            // Mostrar diálogo temático de error
+            showThemedDialog("Respuestas inválidas", "Hay respuestas no válidas", "Al menos una respuesta no es válida. Corrige y vuelve a intentar.", true, null);
+            // No iniciar nueva ronda; preservamos las respuestas actuales.
+        }
+    }
+
+    /**
+     * Muestra un diálogo con el tema de la app.
+     * @param title título de la ventana
+     * @param header encabezado (grande)
+     * @param content texto de contenido
+     * @param isError estilo de error (si true se puede aplicar color distinto)
+     * @param onClose callback ejecutado después de cerrar (puede ser null)
+     */
+    private void showThemedDialog(String title, String header, String content, boolean isError, Runnable onClose) {
+        Stage dialog = new Stage();
+        // owner: la ventana principal para centrar
+        if (letraLabel != null && letraLabel.getScene() != null && letraLabel.getScene().getWindow() != null) {
+            dialog.initOwner(letraLabel.getScene().getWindow());
+            dialog.initModality(Modality.APPLICATION_MODAL);
+        }
+        dialog.setTitle(title);
+
+        VBox root = new VBox();
+        root.getStyleClass().add("main-card");
+        root.setPadding(new Insets(20));
+        root.setSpacing(10);
+        root.setAlignment(Pos.CENTER);
+
+        Label headerLabel = new Label(header);
+        headerLabel.getStyleClass().add("title-label");
+        headerLabel.setWrapText(true);
+
+        Label contentLabel = new Label(content);
+        contentLabel.setWrapText(true);
+        contentLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-family: 'TTMilks';");
+
+        HBox buttons = new HBox();
+        buttons.setAlignment(Pos.CENTER);
+        buttons.setSpacing(12);
+
+        Button closeBtn = new Button("Cerrar");
+        closeBtn.getStyleClass().add("tutti-button");
+        closeBtn.setOnAction(e -> {
+            dialog.close();
+            if (onClose != null) onClose.run();
+        });
+
+        buttons.getChildren().add(closeBtn);
+
+        root.getChildren().addAll(headerLabel, contentLabel, buttons);
+
+        Scene scene = new Scene(root, 420, 180);
+        // aplicar stylesheet del proyecto
+        String css = getClass().getResource("/ui/css/tutti-frutti.css").toExternalForm();
+        scene.getStylesheets().add(css);
+
+        dialog.setScene(scene);
+        dialog.showAndWait();
     }
 
     /**
@@ -260,7 +350,91 @@ public class JuegoController {
         if (timeline != null) {
             timeline.stop();
         }
-        enviarRespuestasYMostrarResultado(false);
+        // Mostrar diálogo con las tres opciones: Reintentar, Saltar, Salir
+        showRendirseDialog();
+    }
+
+    /**
+     * Reinicia la ronda pero mantiene la letra actual (no genera nueva letra).
+     * Limpia los campos y resetea las validaciones y el timer.
+     */
+    private void reiniciarRondaMantenerLetra() {
+        // Limpiar campos de texto
+        camposCategorias.forEach(tf -> tf.setText(""));
+        // Limpiar tabla lateral (respuestas y validaciones)
+        for (int i = 0; i < resultadosData.size(); i++) {
+            resultadosData.get(i).setRespuestaUsuario("");
+            resultadosData.get(i).setValida("");
+        }
+        // Resetear tiempo y barra
+        duracionSegundos = gameService.getConfig().getDuracionSegundos();
+        tiempoRestante = duracionSegundos;
+        tiempoBar.setProgress(1.0);
+        iniciarTimer();
+    }
+
+    /**
+     * Muestra el diálogo temático para quien se rinde con las opciones solicitadas.
+     */
+    private void showRendirseDialog() {
+        Stage dialog = new Stage();
+        if (letraLabel != null && letraLabel.getScene() != null && letraLabel.getScene().getWindow() != null) {
+            dialog.initOwner(letraLabel.getScene().getWindow());
+            dialog.initModality(Modality.APPLICATION_MODAL);
+        }
+        dialog.setTitle("Me rindo");
+
+        VBox root = new VBox();
+        root.getStyleClass().add("main-card");
+        root.setPadding(new Insets(20));
+        root.setSpacing(12);
+        root.setAlignment(Pos.CENTER);
+
+        Label headerLabel = new Label("¿Qué querés hacer?");
+        headerLabel.getStyleClass().add("title-label");
+        headerLabel.setWrapText(true);
+
+        Label contentLabel = new Label("Elegí una opción:");
+        contentLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-family: 'TTMilks';");
+
+        HBox buttons = new HBox();
+        buttons.setAlignment(Pos.CENTER);
+        buttons.setSpacing(12);
+
+        Button reintentarBtn = new Button("Reintentar");
+        reintentarBtn.getStyleClass().add("tutti-button");
+        reintentarBtn.setOnAction(e -> {
+            dialog.close();
+            // Reiniciar la ronda manteniendo la letra actual
+            reiniciarRondaMantenerLetra();
+        });
+
+        Button saltarBtn = new Button("Saltar");
+        saltarBtn.getStyleClass().add("tutti-button");
+        saltarBtn.setOnAction(e -> {
+            dialog.close();
+            // Tratar como pérdida y empezar nueva ronda con letra nueva
+            iniciarNuevaRonda();
+        });
+
+        Button salirBtn = new Button("Salir");
+        salirBtn.getStyleClass().add("tutti-button");
+        salirBtn.setOnAction(e -> {
+            dialog.close();
+            // Volver al menú principal
+            SceneManager.getInstance().showMenuPrincipal();
+        });
+
+        buttons.getChildren().addAll(reintentarBtn, saltarBtn, salirBtn);
+
+        root.getChildren().addAll(headerLabel, contentLabel, buttons);
+
+        Scene scene = new Scene(root, 520, 180);
+        String css = getClass().getResource("/ui/css/tutti-frutti.css").toExternalForm();
+        scene.getStylesheets().add(css);
+
+        dialog.setScene(scene);
+        dialog.showAndWait();
     }
 
     private void enviarRespuestasYMostrarResultado(boolean esTuttiFrutti) {

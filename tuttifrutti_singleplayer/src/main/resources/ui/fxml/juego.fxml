@@ -12,6 +12,7 @@
         <HBox spacing="20.0" alignment="CENTER" BorderPane.alignment="CENTER">
             <children>
                 <Label text="TUTTI FRUTTI" styleClass="title-label"/>
+                <Label fx:id="playerNameLabel" text="" styleClass="player-name-label" />
                 <Pane HBox.hgrow="ALWAYS"/>
                 <Label text="Letra:" styleClass="pill-label"/>
                 <Label fx:id="letraLabel" text="A" styleClass="pill-label"/>

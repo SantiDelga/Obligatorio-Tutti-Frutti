@@ -9,5 +9,12 @@
         <module name="tuttifrutti-singleplayer" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="tuttifrutti" target="21" />
+      <module name="tuttifrutti-client" target="21" />
+      <module name="tuttifrutti-common" target="21" />
+      <module name="tuttifrutti-server" target="21" />
+      <module name="tuttifrutti-ui" target="21" />
+    </bytecodeTargetLevel>
   </component>
 </project>

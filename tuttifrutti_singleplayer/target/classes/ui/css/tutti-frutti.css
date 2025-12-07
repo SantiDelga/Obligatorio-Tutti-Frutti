@@ -71,6 +71,15 @@
     -fx-font-weight: bold;
 }
 
+/* Nombre del jugador al lado del título */
+.player-name-label {
+    -fx-font-family: "TTMilks";
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #ffffff;
+    -fx-padding: 0 8 0 8; /* separacion entre el titulo y el nombre */
+}
+
 /* Paneles oscuros (para más adelante: jugadores/chat/tablero) */
 .dark-panel {
     -fx-background-color: #0f304a;
