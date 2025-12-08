@@ -4,16 +4,11 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.beans.binding.BooleanBinding;
 import javafx.beans.binding.Bindings;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ProgressBar;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.util.Duration;
+import uy.edu.tuttifrutti.app.PartidaContext;
 import uy.edu.tuttifrutti.app.SessionContext;
 import uy.edu.tuttifrutti.application.singleplayer.SinglePlayerGameService;
 import uy.edu.tuttifrutti.application.singleplayer.SinglePlayerRoundResult;
@@ -21,15 +16,15 @@ import uy.edu.tuttifrutti.domain.config.GameConfig;
 import uy.edu.tuttifrutti.domain.juego.Categoria;
 import uy.edu.tuttifrutti.domain.juego.Jugador;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 public class JuegoController {
 
     @FXML
     private Label letraLabel;
+
+    @FXML
+    private Label rondaLabel;
 
     @FXML
     private ProgressBar tiempoBar;
@@ -41,170 +36,276 @@ public class JuegoController {
     private Button rendirseButton;
 
     @FXML
+    private Button reintentarButton;
+
+    @FXML
     private GridPane categoriasGrid;
 
     @FXML
     private TextArea resultadoArea;
 
-    private final ObservableList<TextField> camposCategorias = FXCollections.observableArrayList();
+    private final List<TextField> camposCategorias = new ArrayList<>();
 
-    private Timeline timeline;
-    private int duracionSegundos;
+    private Timeline timer;
     private int tiempoRestante;
 
+    // Modelo de la partida
+    private PartidaContext partida;
     private SinglePlayerGameService gameService;
-    private char letraActual;
 
+    // -----------------------------------------------------------------
+    //                      INIT DEL CONTROLADOR
+    // -----------------------------------------------------------------
     @FXML
-    private void initialize() {
-        // Config por defecto: 60s, sin gracia, 10 puntos por válida, 5 por duplicada (no aplica en single)
-        List<Categoria> categorias = List.of(
-                new Categoria("Animal"),
-                new Categoria("País"),
-                new Categoria("Color"),
-                new Categoria("Fruta"),
-                new Categoria("Objeto")
-        );
-        GameConfig config = GameConfig.configDefault(categorias);
+    public void initialize() {
 
-        String nombre = SessionContext.getInstance().getNombreJugadorActual();
-        if (nombre == null || nombre.isBlank()) {
-            nombre = "Jugador 1";
+        // 1) Traemos la partida desde SessionContext
+        partida = SessionContext.getInstance().getPartidaActual();
+        if (partida == null) {
+            throw new IllegalStateException("Error: PartidaContext es null. No abriste la partida desde la Config.");
         }
-        Jugador jugador = new Jugador(nombre);
+
+        GameConfig config = partida.getGameConfig();
+
+        // 2) Creamos un SinglePlayerGameService con el 1er jugador
+        Jugador jugador = partida.getJugadores().get(0);
         gameService = new SinglePlayerGameService(jugador, config);
 
+        // 3) Construimos dinámicamente las categorías
         construirCamposCategorias(config.getCategoriasActivas());
 
-        BooleanBinding todosValidos = Bindings.createBooleanBinding(
-                this::camposValidos,
-                camposCategorias.stream().map(TextField::textProperty).toArray(observable -> new javafx.beans.Observable[observable])
-        );
-        tuttiFruttiButton.disableProperty().bind(todosValidos.not());
+        // 4) Binding para habilitar / deshabilitar el botón TUTTI FRUTTI
+        configurarHabilitadoTuttiFrutti();
 
+        // 5) Arrancamos la primera ronda
         iniciarNuevaRonda();
     }
 
+    // -----------------------------------------------------------------
+    //             UI - GENERACIÓN DINÁMICA + VALIDACIÓN CAMPOS
+    // -----------------------------------------------------------------
     private void construirCamposCategorias(List<Categoria> categorias) {
         categoriasGrid.getChildren().clear();
         camposCategorias.clear();
-        int row = 0;
-        for (Categoria categoria : categorias) {
-            Label label = new Label(categoria.getNombre());
-            label.getStyleClass().add("pill-label");
+
+        for (int i = 0; i < categorias.size(); i++) {
+            Categoria cat = categorias.get(i);
+
+            Label lbl = new Label(cat.getNombre());
+            lbl.getStyleClass().add("pill-label");
+
             TextField tf = new TextField();
-            tf.setPromptText("Escribe aquí");
+            tf.setPromptText("Escribe aquí...");
             tf.getStyleClass().add("tutti-textfield");
 
-            categoriasGrid.add(label, 0, row);
-            categoriasGrid.add(tf, 1, row);
+            categoriasGrid.add(lbl, 0, i);
+            categoriasGrid.add(tf, 1, i);
 
             camposCategorias.add(tf);
-            row++;
         }
     }
 
-    private void iniciarNuevaRonda() {
-        // Letra random de A-Z
-        letraActual = (char) ('A' + new Random().nextInt(26));
-        letraLabel.setText(String.valueOf(letraActual));
-
-        camposCategorias.forEach(tf -> tf.setText(""));
-        resultadoArea.clear();
-
-        duracionSegundos = gameService.getConfig().getDuracionSegundos();
-        tiempoRestante = duracionSegundos;
-        tiempoBar.setProgress(1.0);
-
-        iniciarTimer();
-    }
-
-    private void iniciarTimer() {
-        if (timeline != null) {
-            timeline.stop();
-        }
-
-        timeline = new Timeline(
-                new KeyFrame(Duration.seconds(1), e -> {
-                    tiempoRestante--;
-                    double progress = (double) tiempoRestante / duracionSegundos;
-                    tiempoBar.setProgress(progress);
-                    if (tiempoRestante <= 0) {
-                        timeline.stop();
-                        onTiempoTerminado();
-                    }
-                })
+    private void configurarHabilitadoTuttiFrutti() {
+        BooleanBinding todosValidos = Bindings.createBooleanBinding(
+                this::camposValidos,
+                camposCategorias.stream()
+                        .map(TextField::textProperty)
+                        .toArray(javafx.beans.Observable[]::new)
         );
-        timeline.setCycleCount(duracionSegundos);
-        timeline.playFromStart();
+
+        tuttiFruttiButton.disableProperty().bind(todosValidos.not());
     }
 
     private boolean camposValidos() {
-        if (letraLabel.getText() == null || letraLabel.getText().isBlank()) {
-            return false;
-        }
-        char inicial = Character.toUpperCase(letraLabel.getText().charAt(0));
+        String letraTxt = letraLabel.getText();
+        if (letraTxt == null || letraTxt.isBlank()) return false;
+
+        char inicial = Character.toUpperCase(letraTxt.charAt(0));
+
         for (TextField tf : camposCategorias) {
-            String t = tf.getText().trim();
-            if (t.isEmpty()) {
-                return false;
-            }
-            if (Character.toUpperCase(t.charAt(0)) != inicial) {
-                return false;
-            }
+            String t = tf.getText() == null ? "" : tf.getText().trim();
+            if (t.isEmpty()) return false;
+            if (Character.toUpperCase(t.charAt(0)) != inicial) return false;
         }
         return true;
     }
 
-    private void onTiempoTerminado() {
-        enviarRespuestasYMostrarResultado(false);
+    // -----------------------------------------------------------------
+    //                      LÓGICA DE UNA RONDA
+    // -----------------------------------------------------------------
+    private void iniciarNuevaRonda() {
+
+        // Ronda actual
+        rondaLabel.setText("Ronda: " + partida.getRondaActual() + "/" + partida.getRondasTotales());
+
+        // Letra sorteada desde PartidaContext
+        String letra = partida.sortearLetra();
+        if (letra == null || letra.isBlank()) {
+            letra = "A"; // fallback defensivo
+        }
+        letraLabel.setText(letra.toUpperCase());
+
+        // Limpiar UI
+        resultadoArea.clear();
+        camposCategorias.forEach(tf -> tf.setText(""));
+
+        // Timer
+        tiempoRestante = partida.getGameConfig().getDuracionSegundos();
+        tiempoBar.setProgress(1.0);
+        iniciarTimer();
     }
 
+    private void iniciarTimer() {
+        if (timer != null) timer.stop();
+
+        int duracion = partida.getGameConfig().getDuracionSegundos();
+
+        timer = new Timeline(
+                new KeyFrame(Duration.seconds(1), e -> {
+                    tiempoRestante--;
+                    double progress = (double) tiempoRestante / duracion;
+                    tiempoBar.setProgress(progress);
+                    if (tiempoRestante <= 0) {
+                        timer.stop();
+                        finalizarRonda(false);
+                    }
+                })
+        );
+        timer.setCycleCount(duracion);
+        timer.playFromStart();
+    }
+
+    // -----------------------------------------------------------------
+    //                      BOTONES JUEGO
+    // -----------------------------------------------------------------
     @FXML
     private void onTuttiFrutti() {
-        if (timeline != null) {
-            timeline.stop();
-        }
-        enviarRespuestasYMostrarResultado(true);
+        if (timer != null) timer.stop();
+        finalizarRonda(true);
     }
 
     @FXML
     private void onRendirse() {
-        if (timeline != null) {
-            timeline.stop();
-        }
-        enviarRespuestasYMostrarResultado(false);
-    }
-
-    private void enviarRespuestasYMostrarResultado(boolean esTuttiFrutti) {
-        Map<Categoria, String> respuestas = new HashMap<>();
-        List<Categoria> categorias = gameService.getConfig().getCategoriasActivas();
-        for (int i = 0; i < categorias.size(); i++) {
-            Categoria c = categorias.get(i);
-            String texto = camposCategorias.get(i).getText();
-            respuestas.put(c, texto);
-        }
-
-        SinglePlayerRoundResult result = gameService.evaluarRonda(letraActual, respuestas);
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("Resultados para ").append(gameService.getJugador().getNombre())
-                .append(" (Letra: ").append(letraActual).append(")\n\n");
-
-        result.getJudgeResult().getEstados().get(gameService.getJugador()).forEach((cat, estado) -> {
-            sb.append(cat.getNombre()).append(": ").append(estado).append("\n");
-        });
-
-        sb.append("\nPuntaje total: ").append(result.getPuntajeTotal()).append("\n");
-        if (!esTuttiFrutti) {
-            sb.append("(La ronda terminó por tiempo o rendición)\n");
-        }
-
-        resultadoArea.setText(sb.toString());
+        if (timer != null) timer.stop();
+        finalizarRonda(false);
     }
 
     @FXML
     private void onReintentar() {
+        // Podrías hacer que reinicie la partida completa
+        partida.reiniciar();
         iniciarNuevaRonda();
+        tuttiFruttiButton.setDisable(false);
+        rendirseButton.setDisable(false);
+    }
+
+    // -----------------------------------------------------------------
+    //                      LÓGICA FINALIZAR RONDA
+    // -----------------------------------------------------------------
+    private void finalizarRonda(boolean fueTuttiFrutti) {
+
+        Map<Categoria, String> respuestas = new HashMap<>();
+        List<Categoria> cats = partida.getGameConfig().getCategoriasActivas();
+
+        for (int i = 0; i < cats.size(); i++) {
+            respuestas.put(cats.get(i), camposCategorias.get(i).getText());
+        }
+
+        int numeroRondaActual = partida.getRondaActual();
+
+        try {
+            SinglePlayerRoundResult result =
+                    gameService.evaluarRonda(letraLabel.getText().charAt(0), respuestas);
+
+            // 1) Sumamos puntaje de esta ronda al acumulado
+            partida.sumarPuntajeRonda(result.getPuntajeTotal());
+
+            // 2) ¿Hay más rondas?
+            boolean hayMasRondas = partida.avanzarRonda();
+
+            // 3) Mostrar resultado (ronda + acumulado + si es final o no)
+            mostrarResultadoRonda(result, numeroRondaActual, hayMasRondas);
+
+            // 4) Si hay más rondas, pasamos automáticamente a la siguiente
+            if (hayMasRondas) {
+                iniciarNuevaRonda();
+            } else {
+                // Última ronda: deshabilitamos botones de juego
+                tuttiFruttiButton.disableProperty().unbind();
+                tuttiFruttiButton.setDisable(true);
+                rendirseButton.setDisable(true);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            resultadoArea.setText(
+                    "Ocurrió un error al llamar al juez IA.\n" +
+                            "Revisa la consola y la configuración de la API.\n\n" +
+                            "Detalle técnico: " + e.getClass().getSimpleName() + " - " + e.getMessage()
+            );
+        }
+
+        // ⛔ Deshabilito el botón después de usarlo (para evitar doble click)
+        tuttiFruttiButton.setDisable(true);
+
+        // ⛔ Si esta NO es la última ronda → pasar a la siguiente
+        if (partida.avanzarRonda()) {
+            // pequeña pausa opcional
+            new Timer().schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    javafx.application.Platform.runLater(() -> {
+                        iniciarNuevaRonda();
+                        tuttiFruttiButton.setDisable(false);
+                    });
+                }
+            }, 800);
+        }
+        // 🟩 Si esta era la última ronda → mostrar el botón de reintentar
+        else {
+            reintentarButton.setVisible(true);
+            reintentarButton.setManaged(true);
+        }
+    }
+
+    // -----------------------------------------------------------------
+    //                      MOSTRAR RESULTADO
+    // -----------------------------------------------------------------
+    private void mostrarResultadoRonda(SinglePlayerRoundResult result,
+                                       int numeroRonda,
+                                       boolean hayMasRondas) {
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Resultados ronda ")
+                .append(numeroRonda)
+                .append(" - Letra: ")
+                .append(result.getLetra())
+                .append("\n\n");
+
+        result.getJudgeResult().getEstados()
+                .get(gameService.getJugador())
+                .forEach((categoria, estado) -> {
+                    sb.append(categoria.getNombre())
+                            .append(": ")
+                            .append(estado)
+                            .append("\n");
+                });
+
+        sb.append("\nPuntaje de esta ronda: ")
+                .append(result.getPuntajeTotal())
+                .append("\n");
+
+        sb.append("Puntaje acumulado: ")
+                .append(partida.getPuntajeAcumulado())
+                .append("\n");
+
+        if (hayMasRondas) {
+            sb.append("\n➡ Pasando a la siguiente ronda...\n");
+        } else {
+            sb.append("\n✅ PARTIDA FINALIZADA\n");
+            sb.append("PUNTAJE FINAL: ").append(partida.getPuntajeAcumulado()).append("\n");
+        }
+
+        resultadoArea.setText(sb.toString());
     }
 }

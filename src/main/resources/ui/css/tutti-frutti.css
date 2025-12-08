@@ -269,6 +269,20 @@
     -fx-control-inner-background: #204a68;
 }
 
+/* Hex de la letra en la pantalla de juego */
+.letra-hex-label {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+}
+
+/* Barra de tiempo en juego */
+.tiempo-bar {
+    -fx-accent: #27c4a8;                 /* color del progreso */
+    -fx-control-inner-background: #ffffff;
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+}
 
 
 
