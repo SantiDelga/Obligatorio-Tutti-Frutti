@@ -3,13 +3,14 @@ package uy.edu.tuttifrutti.application.singleplayer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import uy.edu.tuttifrutti.domain.config.GameConfig;
 import uy.edu.tuttifrutti.domain.juego.Categoria;
 import uy.edu.tuttifrutti.domain.juego.Jugador;
 import uy.edu.tuttifrutti.domain.juego.RoundSubmission;
 import uy.edu.tuttifrutti.domain.juez.JudgeResult;
 import uy.edu.tuttifrutti.domain.juez.JudgeStrategy;
-import uy.edu.tuttifrutti.domain.juez.SinglePlayerJudgeStrategy;
+import uy.edu.tuttifrutti.infrastructure.ai.OpenAiJudgeStrategy;
 
 public class SinglePlayerGameService {
 
@@ -20,7 +21,10 @@ public class SinglePlayerGameService {
     public SinglePlayerGameService(Jugador jugador, GameConfig config) {
         this.jugador = jugador;
         this.config = config;
-        this.judgeStrategy = new SinglePlayerJudgeStrategy();
+        // ✅ ahora usamos la estrategia que llama a OpenAI
+        this.judgeStrategy = new OpenAiJudgeStrategy();
+        // si quisieras volver al juez local:
+        // this.judgeStrategy = new SinglePlayerJudgeStrategy();
     }
 
     public GameConfig getConfig() {

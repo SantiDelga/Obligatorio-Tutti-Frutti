@@ -5,6 +5,12 @@ import javafx.scene.control.*;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import uy.edu.tuttifrutti.app.SceneManager;
+import uy.edu.tuttifrutti.app.SessionContext;
+import uy.edu.tuttifrutti.app.PartidaContext;
+import uy.edu.tuttifrutti.domain.config.GameConfig;
+import uy.edu.tuttifrutti.domain.juego.Categoria;
+import uy.edu.tuttifrutti.domain.juego.Jugador;
+
 
 import java.util.*;
 
@@ -192,6 +198,7 @@ public class ConfigSalaController {
 
     @FXML
     private void onEmpezar() {
+        // 1) Temas seleccionados -> Categorias
         List<String> temas = new ArrayList<>();
         for (ToggleButton tb : toggleTemas) {
             if (tb.isSelected()) {
@@ -199,6 +206,12 @@ public class ConfigSalaController {
             }
         }
 
+        List<Categoria> categorias = new ArrayList<>();
+        for (String tema : temas) {
+            categorias.add(new Categoria(tema));
+        }
+
+        // 2) Letras seleccionadas
         List<String> letras = new ArrayList<>();
         for (ToggleButton tb : toggleLetras) {
             if (tb.isSelected()) {
@@ -206,14 +219,61 @@ public class ConfigSalaController {
             }
         }
 
+        // 3) Crear GameConfig con lo que definiste (podés ajustar puntos si querés)
+        int duracionSegundos = comboTiempo.getValue();   // ej: 60
+        int tiempoGracia = 0;                            // por ahora 0 en single
+        int puntosValidaUnica = 10;
+        int puntosValidaDuplicada = 5;
+
+        GameConfig config = new GameConfig(
+                duracionSegundos,
+                tiempoGracia,
+                categorias,
+                puntosValidaUnica,
+                puntosValidaDuplicada
+        );
+
+        // 4) Crear lista de jugadores dummy según comboJugadores
+        int cantJugadores = comboJugadores.getValue();
+        List<Jugador> jugadores = new ArrayList<>();
+        for (int i = 1; i <= cantJugadores; i++) {
+            jugadores.add(new Jugador("Jugador " + i));
+        }
+
+        // 5) Crear PartidaContext (modo singleplayer por ahora)
+        PartidaContext partida = new PartidaContext(
+                PartidaContext.ModoPartida.SINGLEPLAYER,
+                config,
+                jugadores,
+                comboRondas.getValue(),
+                letras
+        );
+
+        // 6) Guardar en SessionContext
+        SessionContext.getInstance().setPartidaActual(partida);
+
+        // 7) (Opcional) mostrar resumen en el chat
         txtChatInfo.setText("Config de la sala:\n" +
-                "- Jugadores máx: " + comboJugadores.getValue() + "\n" +
+                "- Jugadores: " + cantJugadores + "\n" +
                 "- Rondas: " + comboRondas.getValue() + "\n" +
                 "- Tiempo: " + comboTiempo.getValue() + " s\n" +
                 "- Temas (" + temas.size() + "): " + String.join(", ", temas) + "\n" +
                 "- Letras: " + String.join(", ", letras) + "\n\n" +
-                "Acá luego se puede notificar al servidor y pasar a la pantalla de juego.");
+                "Partida creada. Pasando a la pantalla de juego...");
+
+        // 8) Ir a la pantalla de juego
+        SceneManager.getInstance().showJuego();
     }
+
+    // helper chiquito para armar el texto de temas
+    private List<String> temasComoString(List<Categoria> categorias) {
+        List<String> nombres = new ArrayList<>();
+        for (Categoria c : categorias) {
+            nombres.add(c.getNombre());
+        }
+        return nombres;
+    }
+
 
     @FXML
     private void onSalir() {

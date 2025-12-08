@@ -32,16 +32,16 @@
                         </image>
                     </ImageView>
 
-                    <Button text="CREAR UNA SALA"
+                    <Button text="JUGAR EN SOLITARIO"
                             maxWidth="320.0"
                             prefHeight="50.0"
-                            onAction="#onCrearSala"
+                            onAction="#onJugarEnSolitario"
                             styleClass="tutti-button"/>
 
                     <Button text="UNIRSE A UNA SALA"
                             maxWidth="320.0"
                             prefHeight="50.0"
-                            onAction="#onUnirseSala"
+                            onAction="#onJugarMultijugador"
                             styleClass="tutti-button"/>
                 </VBox>
             </center>
