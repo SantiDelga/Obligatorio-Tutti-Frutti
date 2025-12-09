@@ -44,7 +44,14 @@ public class JuegoController {
 
     @FXML
     private TextArea resultadoArea;
+    @FXML
+    private void onSalir() {
+        // Cancelar timer si sigue corriendo
+        if (timer != null) timer.stop();
 
+        // Volver a la pantalla usando la instancia de SceneManager
+        uy.edu.tuttifrutti.app.SceneManager.getInstance().showConfigSala(); // reemplaza showConfigSala() por el nombre real si es distinto
+    }
     private final List<TextField> camposCategorias = new ArrayList<>();
 
     private Timeline timer;
