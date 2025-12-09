@@ -222,8 +222,9 @@ public class ConfigSalaController {
         // 3) Crear GameConfig con lo que definiste (podés ajustar puntos si querés)
         int duracionSegundos = comboTiempo.getValue();   // ej: 60
         int tiempoGracia = 0;                            // por ahora 0 en single
-        int puntosValidaUnica = 10;
-        int puntosValidaDuplicada = 5;
+        // Por defecto una respuesta válida da 1 punto (antes 10)
+        int puntosValidaUnica = 1;
+        int puntosValidaDuplicada = 1;
 
         GameConfig config = new GameConfig(
                 duracionSegundos,
