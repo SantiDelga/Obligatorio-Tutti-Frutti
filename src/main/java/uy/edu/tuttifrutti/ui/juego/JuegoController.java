@@ -15,10 +15,15 @@ import uy.edu.tuttifrutti.application.singleplayer.SinglePlayerRoundResult;
 import uy.edu.tuttifrutti.domain.config.GameConfig;
 import uy.edu.tuttifrutti.domain.juego.Categoria;
 import uy.edu.tuttifrutti.domain.juego.Jugador;
+import uy.edu.tuttifrutti.domain.juez.JudgeResult;
 
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class JuegoController {
+
+    private static final Logger LOGGER = Logger.getLogger(JuegoController.class.getName());
 
     @FXML
     private Label letraLabel;
@@ -247,6 +252,9 @@ public class JuegoController {
     // -----------------------------------------------------------------
     private void finalizarRonda(boolean fueTuttiFrutti) {
 
+        // Log para usar el parámetro y mejorar trazabilidad
+        LOGGER.fine("finalizarRonda called, fueTuttiFrutti=" + fueTuttiFrutti);
+
         Map<Categoria, String> respuestas = new HashMap<>();
         List<Categoria> cats = partida.getGameConfig().getCategoriasActivas();
 
@@ -285,7 +293,7 @@ public class JuegoController {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error al llamar al juez IA", e);
             resultadoArea.setText(
                     "Ocurrió un error al llamar al juez IA.\n" +
                             "Revisa la consola y la configuración de la API.\n\n" +
@@ -325,6 +333,75 @@ public class JuegoController {
                                        int numeroRonda,
                                        boolean hayMasRondas) {
 
+        // Si NO hay más rondas -> queremos mostrar un resumen de TODAS las rondas
+        if (!hayMasRondas) {
+            StringBuilder sb = new StringBuilder();
+            List<SinglePlayerRoundResult> history = gameService.getRoundHistory();
+
+            for (int i = 0; i < history.size(); i++) {
+                SinglePlayerRoundResult r = history.get(i);
+                sb.append("Ronda ").append(i + 1)
+                        .append(" - Letra: ")
+                        .append(r.getLetra())
+                        .append("\n\n");
+
+                // Estados por categoría para el jugador
+                Map<Categoria, JudgeResult.EstadoRespuesta> estados = r.getJudgeResult()
+                        .getEstados()
+                        .get(gameService.getJugador());
+
+                Map<Categoria, Integer> puntosPorCategoria = r.getPuntosPorCategoria();
+
+                // Mostrar cada categoría y su estado + puntos
+                if (estados != null) {
+                    Map<Categoria, String> respuestasRonda = r.getRespuestas();
+                    for (Categoria cat : r.getConfig().getCategoriasActivas()) {
+                        JudgeResult.EstadoRespuesta estado = estados.get(cat);
+                        int puntos = puntosPorCategoria.getOrDefault(cat, 0);
+                        String respuestaJugador = respuestasRonda == null ? "" : respuestasRonda.getOrDefault(cat, "");
+                        String estadoTexto;
+                        if (estado == null) {
+                            estadoTexto = "Vacío";
+                        } else switch (estado) {
+                            case VALIDA_UNICA:
+                            case VALIDA_DUPLICADA:
+                                estadoTexto = "Válido";
+                                break;
+                            case INVALIDA:
+                                estadoTexto = "No válido";
+                                break;
+                            case VACIA:
+                                estadoTexto = "Vacío";
+                                break;
+                            default:
+                                estadoTexto = estado.name();
+                        }
+
+                        sb.append(cat.getNombre())
+                                .append(": ")
+                                .append(respuestaJugador == null ? "" : respuestaJugador)
+                                .append(" - ")
+                                .append(estadoTexto)
+                                .append(" (")
+                                .append(puntos)
+                                .append(")\n");
+                    }
+                }
+
+                sb.append("\nPuntaje de esta ronda: ")
+                        .append(r.getPuntajeTotal())
+                        .append("\n\n");
+            }
+
+            sb.append("PUNTAJE FINAL: ")
+                    .append(partida.getPuntajeAcumulado())
+                    .append("\n");
+
+            resultadoArea.setText(sb.toString());
+            return;
+        }
+
+        // Comportamiento anterior (mientras queden rondas)
         StringBuilder sb = new StringBuilder();
         sb.append("Resultados ronda ")
                 .append(numeroRonda)
@@ -332,14 +409,24 @@ public class JuegoController {
                 .append(result.getLetra())
                 .append("\n\n");
 
-        result.getJudgeResult().getEstados()
-                .get(gameService.getJugador())
-                .forEach((categoria, estado) -> {
-                    sb.append(categoria.getNombre())
-                            .append(": ")
-                            .append(estado)
-                            .append("\n");
-                });
+        Map<Categoria, JudgeResult.EstadoRespuesta> estadosActual = result.getJudgeResult().getEstados().get(gameService.getJugador());
+        Map<Categoria, String> respuestasActual = result.getRespuestas();
+        if (estadosActual != null) {
+            for (Categoria categoria : result.getConfig().getCategoriasActivas()) {
+                JudgeResult.EstadoRespuesta estado = estadosActual.get(categoria);
+                String respuestaJugador = respuestasActual == null ? "" : respuestasActual.getOrDefault(categoria, "");
+                String estadoTexto = estado == null ? "Vacío" :
+                        (estado == JudgeResult.EstadoRespuesta.VALIDA_UNICA || estado == JudgeResult.EstadoRespuesta.VALIDA_DUPLICADA) ? "Válido"
+                                : (estado == JudgeResult.EstadoRespuesta.INVALIDA ? "No válido" : "Vacío");
+
+                sb.append(categoria.getNombre())
+                        .append(": ")
+                        .append(respuestaJugador == null ? "" : respuestaJugador)
+                        .append(" - ")
+                        .append(estadoTexto)
+                        .append("\n");
+            }
+        }
 
         sb.append("\nPuntaje de esta ronda: ")
                 .append(result.getPuntajeTotal())
