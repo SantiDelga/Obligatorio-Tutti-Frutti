@@ -53,6 +53,9 @@ public class JuegoController {
     private PartidaContext partida;
     private SinglePlayerGameService gameService;
 
+    // Guardamos la binding para poder unbind/rebind cuando sea necesario
+    private BooleanBinding todosValidosBinding;
+
     // -----------------------------------------------------------------
     //                      INIT DEL CONTROLADOR
     // -----------------------------------------------------------------
@@ -106,14 +109,16 @@ public class JuegoController {
     }
 
     private void configurarHabilitadoTuttiFrutti() {
-        BooleanBinding todosValidos = Bindings.createBooleanBinding(
+        // guardamos la binding para poder re-utilizarla (unbind/rebind) cuando necesitemos setear manualmente
+        todosValidosBinding = Bindings.createBooleanBinding(
                 this::camposValidos,
                 camposCategorias.stream()
                         .map(TextField::textProperty)
                         .toArray(javafx.beans.Observable[]::new)
         );
 
-        tuttiFruttiButton.disableProperty().bind(todosValidos.not());
+        // Aplicamos la binding al botón
+        bindTuttiFrutti();
     }
 
     private boolean camposValidos() {
@@ -128,6 +133,23 @@ public class JuegoController {
             if (Character.toUpperCase(t.charAt(0)) != inicial) return false;
         }
         return true;
+    }
+
+    // Helpers para manejar con seguridad la propiedad disable del botón (que suele estar ligada)
+    private void bindTuttiFrutti() {
+        if (todosValidosBinding != null) {
+            // asegurarnos de que no esté ligada a otra cosa
+            if (tuttiFruttiButton.disableProperty().isBound()) {
+                tuttiFruttiButton.disableProperty().unbind();
+            }
+            tuttiFruttiButton.disableProperty().bind(todosValidosBinding.not());
+        }
+    }
+
+    private void unbindTuttiFrutti() {
+        if (tuttiFruttiButton.disableProperty().isBound()) {
+            tuttiFruttiButton.disableProperty().unbind();
+        }
     }
 
     // -----------------------------------------------------------------
@@ -153,6 +175,9 @@ public class JuegoController {
         tiempoRestante = partida.getGameConfig().getDuracionSegundos();
         tiempoBar.setProgress(1.0);
         iniciarTimer();
+
+        // Restauramos la binding del botón (si fue deshecha antes)
+        bindTuttiFrutti();
     }
 
     private void iniciarTimer() {
@@ -195,7 +220,8 @@ public class JuegoController {
         // Podrías hacer que reinicie la partida completa
         partida.reiniciar();
         iniciarNuevaRonda();
-        tuttiFruttiButton.setDisable(false);
+        // reestablecemos comportamiento reactivo del boton
+        bindTuttiFrutti();
         rendirseButton.setDisable(false);
     }
 
@@ -217,7 +243,7 @@ public class JuegoController {
             SinglePlayerRoundResult result =
                     gameService.evaluarRonda(letraLabel.getText().charAt(0), respuestas);
 
-            // 1) Sumamos puntaje de esta ronda al acumulado
+            // 1) Sumamos puntaje de esta ronda al acumulado de la partida
             partida.sumarPuntajeRonda(result.getPuntajeTotal());
 
             // 2) ¿Hay más rondas?
@@ -231,7 +257,7 @@ public class JuegoController {
                 iniciarNuevaRonda();
             } else {
                 // Última ronda: deshabilitamos botones de juego
-                tuttiFruttiButton.disableProperty().unbind();
+                unbindTuttiFrutti();
                 tuttiFruttiButton.setDisable(true);
                 rendirseButton.setDisable(true);
             }
@@ -246,6 +272,8 @@ public class JuegoController {
         }
 
         // ⛔ Deshabilito el botón después de usarlo (para evitar doble click)
+        // Si la propiedad estaba ligada, la desenganchamos antes de setear
+        unbindTuttiFrutti();
         tuttiFruttiButton.setDisable(true);
 
         // ⛔ Si esta NO es la última ronda → pasar a la siguiente
@@ -256,7 +284,8 @@ public class JuegoController {
                 public void run() {
                     javafx.application.Platform.runLater(() -> {
                         iniciarNuevaRonda();
-                        tuttiFruttiButton.setDisable(false);
+                        // restauramos binding para que el boton vuelva a comportarse automáticamente
+                        bindTuttiFrutti();
                     });
                 }
             }, 800);
