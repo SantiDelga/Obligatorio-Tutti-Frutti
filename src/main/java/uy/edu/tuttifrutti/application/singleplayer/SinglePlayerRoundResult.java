@@ -14,6 +14,7 @@ public class SinglePlayerRoundResult {
     private final Map<Categoria, String> respuestas;
     private final JudgeResult judgeResult;
     private final int puntajeTotal;
+    private final Map<Categoria, Integer> puntosPorCategoria;
 
     public SinglePlayerRoundResult(char letra,
                                    GameConfig config,
@@ -21,12 +22,23 @@ public class SinglePlayerRoundResult {
                                    Map<Categoria, String> respuestas,
                                    JudgeResult judgeResult,
                                    int puntajeTotal) {
+        this(letra, config, jugador, respuestas, judgeResult, puntajeTotal, Map.of());
+    }
+
+    public SinglePlayerRoundResult(char letra,
+                                   GameConfig config,
+                                   Jugador jugador,
+                                   Map<Categoria, String> respuestas,
+                                   JudgeResult judgeResult,
+                                   int puntajeTotal,
+                                   Map<Categoria, Integer> puntosPorCategoria) {
         this.letra = letra;
         this.config = config;
         this.jugador = jugador;
         this.respuestas = respuestas;
         this.judgeResult = judgeResult;
         this.puntajeTotal = puntajeTotal;
+        this.puntosPorCategoria = Map.copyOf(puntosPorCategoria);
     }
 
     public char getLetra() {
@@ -51,5 +63,9 @@ public class SinglePlayerRoundResult {
 
     public int getPuntajeTotal() {
         return puntajeTotal;
+    }
+
+    public Map<Categoria, Integer> getPuntosPorCategoria() {
+        return puntosPorCategoria;
     }
 }

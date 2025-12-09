@@ -44,6 +44,7 @@ public class GameConfig {
     }
 
     public static GameConfig configDefault(List<Categoria> categorias) {
+        // Restablecido: el comportamiento por defecto sigue siendo 10/5
         return new GameConfig(60, 0, categorias, 10, 5);
     }
 }

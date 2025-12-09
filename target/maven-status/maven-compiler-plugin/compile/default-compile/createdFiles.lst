@@ -1,3 +1,4 @@
+uy\edu\tuttifrutti\ui\juego\JuegoController$2.class
 uy\edu\tuttifrutti\domain\juego\Jugador.class
 uy\edu\tuttifrutti\app\PartidaContext$ModoPartida.class
 uy\edu\tuttifrutti\ui\config\ConfigSalaController.class
@@ -18,6 +19,7 @@ uy\edu\tuttifrutti\app\MainApp.class
 uy\edu\tuttifrutti\domain\juez\SinglePlayerJudgeStrategy.class
 uy\edu\tuttifrutti\application\singleplayer\SinglePlayerRoundResult.class
 uy\edu\tuttifrutti\domain\config\GameSetup.class
+uy\edu\tuttifrutti\application\singleplayer\SinglePlayerGameService$1.class
 uy\edu\tuttifrutti\domain\juez\JudgeLogEntry.class
 uy\edu\tuttifrutti\ui\menu\MenuPrincipalController.class
 uy\edu\tuttifrutti\app\SceneManager.class

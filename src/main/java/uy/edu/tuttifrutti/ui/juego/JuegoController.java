@@ -15,6 +15,7 @@ import uy.edu.tuttifrutti.application.singleplayer.SinglePlayerRoundResult;
 import uy.edu.tuttifrutti.domain.config.GameConfig;
 import uy.edu.tuttifrutti.domain.juego.Categoria;
 import uy.edu.tuttifrutti.domain.juego.Jugador;
+import uy.edu.tuttifrutti.domain.juez.JudgeResult;
 
 import java.util.*;
 
@@ -74,6 +75,17 @@ public class JuegoController {
         Jugador jugador = partida.getJugadores().get(0);
         gameService = new SinglePlayerGameService(jugador, config);
 
+        // Aseguramos que el área de resultados use texto negro y la clase CSS adecuada
+        try {
+            if (!resultadoArea.getStyleClass().contains("result-area")) {
+                resultadoArea.getStyleClass().add("result-area");
+            }
+            // Forzamos color en línea como respaldo
+            resultadoArea.setStyle("-fx-text-fill: black; -fx-font-family: 'TTMilks';");
+        } catch (Exception ex) {
+            System.err.println("Warning: no se pudo setear estilo en resultadoArea: " + ex.getMessage());
+        }
+
         // 3) Construimos dinámicamente las categorías
         construirCamposCategorias(config.getCategoriasActivas());
 
@@ -117,7 +129,6 @@ public class JuegoController {
                         .toArray(javafx.beans.Observable[]::new)
         );
 
-        // Aplicamos la binding al botón
         bindTuttiFrutti();
     }
 
@@ -138,7 +149,6 @@ public class JuegoController {
     // Helpers para manejar con seguridad la propiedad disable del botón (que suele estar ligada)
     private void bindTuttiFrutti() {
         if (todosValidosBinding != null) {
-            // asegurarnos de que no esté ligada a otra cosa
             if (tuttiFruttiButton.disableProperty().isBound()) {
                 tuttiFruttiButton.disableProperty().unbind();
             }
@@ -147,8 +157,13 @@ public class JuegoController {
     }
 
     private void unbindTuttiFrutti() {
-        if (tuttiFruttiButton.disableProperty().isBound()) {
-            tuttiFruttiButton.disableProperty().unbind();
+        try {
+            if (tuttiFruttiButton.disableProperty().isBound()) {
+                tuttiFruttiButton.disableProperty().unbind();
+            }
+        } catch (Exception ex) {
+            // Si por alguna razón no podemos unbind, lo registramos en consola y seguimos
+            System.err.println("Warning: no se pudo unbind del botón tuttiFrutti: " + ex.getMessage());
         }
     }
 
@@ -176,7 +191,7 @@ public class JuegoController {
         tiempoBar.setProgress(1.0);
         iniciarTimer();
 
-        // Restauramos la binding del botón (si fue deshecha antes)
+        // Restauramos binding del botón
         bindTuttiFrutti();
     }
 
@@ -219,8 +234,10 @@ public class JuegoController {
     private void onReintentar() {
         // Podrías hacer que reinicie la partida completa
         partida.reiniciar();
+        // limpiamos historial del servicio para empezar desde cero
+        if (gameService != null) gameService.clearRoundHistory();
         iniciarNuevaRonda();
-        // reestablecemos comportamiento reactivo del boton
+        // Restauramos binding y botones
         bindTuttiFrutti();
         rendirseButton.setDisable(false);
     }
@@ -239,6 +256,8 @@ public class JuegoController {
 
         int numeroRondaActual = partida.getRondaActual();
 
+        boolean hayMasRondas = false;
+
         try {
             SinglePlayerRoundResult result =
                     gameService.evaluarRonda(letraLabel.getText().charAt(0), respuestas);
@@ -246,21 +265,11 @@ public class JuegoController {
             // 1) Sumamos puntaje de esta ronda al acumulado de la partida
             partida.sumarPuntajeRonda(result.getPuntajeTotal());
 
-            // 2) ¿Hay más rondas?
-            boolean hayMasRondas = partida.avanzarRonda();
+            // 2) Avanzamos UNA vez y guardamos si hay más rondas
+            hayMasRondas = partida.avanzarRonda();
 
             // 3) Mostrar resultado (ronda + acumulado + si es final o no)
             mostrarResultadoRonda(result, numeroRondaActual, hayMasRondas);
-
-            // 4) Si hay más rondas, pasamos automáticamente a la siguiente
-            if (hayMasRondas) {
-                iniciarNuevaRonda();
-            } else {
-                // Última ronda: deshabilitamos botones de juego
-                unbindTuttiFrutti();
-                tuttiFruttiButton.setDisable(true);
-                rendirseButton.setDisable(true);
-            }
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -272,13 +281,26 @@ public class JuegoController {
         }
 
         // ⛔ Deshabilito el botón después de usarlo (para evitar doble click)
-        // Si la propiedad estaba ligada, la desenganchamos antes de setear
-        unbindTuttiFrutti();
-        tuttiFruttiButton.setDisable(true);
+        javafx.application.Platform.runLater(() -> {
+            try {
+                unbindTuttiFrutti();
+            } catch (Exception ex) {
+                System.err.println("Warning: fallo al unbind del botón tuttiFrutti en Platform.runLater: " + ex.getMessage());
+            }
+            // Ahora sí seteamos el estado del botón en el hilo de UI
+            if (tuttiFruttiButton.disableProperty().isBound()) {
+                try {
+                    tuttiFruttiButton.disableProperty().unbind();
+                } catch (Exception ex) {
+                    System.err.println("Warning: no se pudo unbind antes de setDisable en Platform.runLater: " + ex.getMessage());
+                }
+            }
+            tuttiFruttiButton.setDisable(true);
+        });
 
-        // ⛔ Si esta NO es la última ronda → pasar a la siguiente
-        if (partida.avanzarRonda()) {
-            // pequeña pausa opcional
+        // Ahora usamos la variable hayMasRondas (ya establece si avanzamos) para decidir el flujo
+        if (hayMasRondas) {
+            // pequeña pausa opcional antes de iniciar la siguiente ronda
             new Timer().schedule(new TimerTask() {
                 @Override
                 public void run() {
@@ -290,8 +312,11 @@ public class JuegoController {
                 }
             }, 800);
         }
-        // 🟩 Si esta era la última ronda → mostrar el botón de reintentar
+        // 🟩 Si esta era la última ronda → mostrar el botón de reintentar y deshabilitar botones de juego
         else {
+            // Última ronda: deshabilitamos botones de juego
+            rendirseButton.setDisable(true);
+
             reintentarButton.setVisible(true);
             reintentarButton.setManaged(true);
         }
@@ -304,37 +329,83 @@ public class JuegoController {
                                        int numeroRonda,
                                        boolean hayMasRondas) {
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("Resultados ronda ")
-                .append(numeroRonda)
-                .append(" - Letra: ")
-                .append(result.getLetra())
-                .append("\n\n");
-
-        result.getJudgeResult().getEstados()
-                .get(gameService.getJugador())
-                .forEach((categoria, estado) -> {
-                    sb.append(categoria.getNombre())
-                            .append(": ")
-                            .append(estado)
-                            .append("\n");
-                });
-
-        sb.append("\nPuntaje de esta ronda: ")
-                .append(result.getPuntajeTotal())
-                .append("\n");
-
-        sb.append("Puntaje acumulado: ")
-                .append(partida.getPuntajeAcumulado())
-                .append("\n");
-
+        // Si hay más rondas, mostramos solamente el resultado de la ronda actual como antes
         if (hayMasRondas) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("Resultados ronda ")
+                    .append(numeroRonda)
+                    .append(" - Letra: ")
+                    .append(result.getLetra())
+                    .append("\n\n");
+
+            result.getJudgeResult().getEstados()
+                    .get(gameService.getJugador())
+                    .forEach((categoria, estado) -> {
+                        sb.append(categoria.getNombre())
+                                .append(": ")
+                                .append(estado)
+                                .append("\n");
+                    });
+
+            sb.append("\nPuntaje de esta ronda: ")
+                    .append(result.getPuntajeTotal())
+                    .append("\n");
+
+            sb.append("Puntaje acumulado: ")
+                    .append(partida.getPuntajeAcumulado())
+                    .append("\n");
+
             sb.append("\n➡ Pasando a la siguiente ronda...\n");
-        } else {
-            sb.append("\n✅ PARTIDA FINALIZADA\n");
-            sb.append("PUNTAJE FINAL: ").append(partida.getPuntajeAcumulado()).append("\n");
+            resultadoArea.setText(sb.toString());
+            return;
         }
 
-        resultadoArea.setText(sb.toString());
+        // Si llegamos acá, la partida finalizó → mostramos resumen consolidado de todas las rondas
+        List<SinglePlayerRoundResult> history = gameService.getRoundHistory();
+        StringBuilder sbAll = new StringBuilder();
+
+        int idx = 1;
+        for (SinglePlayerRoundResult r : history) {
+            sbAll.append("Ronda ").append(idx).append(" - Letra ").append(r.getLetra()).append("\n");
+
+            Map<Categoria, JudgeResult.EstadoRespuesta> estados = r.getJudgeResult().getEstados().get(r.getJugador());
+            Map<Categoria, Integer> puntos = r.getPuntosPorCategoria();
+            Map<Categoria, String> respuestas = r.getRespuestas();
+
+            for (Categoria cat : r.getConfig().getCategoriasActivas()) {
+                String resp = respuestas.getOrDefault(cat, "");
+                JudgeResult.EstadoRespuesta st = estados == null ? null : estados.get(cat);
+                String valido = estadoToSiNo(st);
+                int pts = puntos.getOrDefault(cat, 0);
+                sbAll.append(cat.getNombre())
+                        .append(": ")
+                        .append(resp == null || resp.isBlank() ? "(vacío)" : resp)
+                        .append(" -> ")
+                        .append(valido)
+                        .append(" (")
+                        .append(pts)
+                        .append(")\n");
+            }
+
+            sbAll.append("Puntaje: ").append(r.getPuntajeTotal()).append("\n\n");
+            idx++;
+        }
+
+        sbAll.append("PUNTAJE FINAL: ").append(partida.getPuntajeAcumulado()).append("\n");
+        resultadoArea.setText(sbAll.toString());
+    }
+
+    private String estadoToSiNo(JudgeResult.EstadoRespuesta estado) {
+        if (estado == null) return "NO";
+        switch (estado) {
+            case VALIDA_UNICA:
+            case VALIDA_DUPLICADA:
+                return "SI";
+            case VACIA:
+                return "VACIA";
+            case INVALIDA:
+            default:
+                return "NO";
+        }
     }
 }

@@ -92,7 +92,7 @@
 /* Área de resultados / chat */
 .result-area {
     -fx-background-color: #0f304a;
-    -fx-text-fill: #ffffff;
+    -fx-text-fill: #000000; /* cambiado a negro */
     -fx-background-radius: 20;
     -fx-border-radius: 20;
     -fx-padding: 10;
@@ -283,8 +283,3 @@
     -fx-background-radius: 20;
     -fx-border-radius: 20;
 }
-
-
-
-
-
