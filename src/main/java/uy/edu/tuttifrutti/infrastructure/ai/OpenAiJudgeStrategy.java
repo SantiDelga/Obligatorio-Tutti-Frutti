@@ -44,18 +44,20 @@ public class OpenAiJudgeStrategy implements JudgeStrategy {
         Map<Categoria, JudgeResult.EstadoRespuesta> estadosJugador = new HashMap<>();
 
         String[] lineas = textoIA.split("\\n");
-        int puntajeTotal = 0;
 
         for (String linea : lineas) {
             String l = linea.trim();
 
             if (l.startsWith("- Categoria:")) {
                 // Esperamos algo parecido a:
-                // - Categoria: Animal | Respuesta: Araña | Estado: VALIDA | Motivo: ...
+                // - Categoria: Animal | Respuesta: Araña | Estado: SI | Motivo: ...
                 try {
                     String[] partes = l.split("\\|");
                     String nombreCat = partes[0].split(":", 2)[1].trim();
-                    String estadoTxt = partes[2].split(":", 2)[1].trim();
+                    String estadoTxt = "";
+                    if (partes.length > 2) {
+                        estadoTxt = partes[2].split(":", 2)[1].trim();
+                    }
 
                     Categoria cat = respuestasJugador.keySet().stream()
                             .filter(c -> c.getNombre().equalsIgnoreCase(nombreCat))
@@ -65,13 +67,16 @@ public class OpenAiJudgeStrategy implements JudgeStrategy {
                     if (cat != null) {
                         JudgeResult.EstadoRespuesta estadoEnum;
 
-                        if (estadoTxt.toUpperCase().startsWith("VALIDA")) {
+                        String e = estadoTxt.toUpperCase();
+                        if (e.equals("SI") || e.startsWith("VALIDA")) {
                             estadoEnum = JudgeResult.EstadoRespuesta.VALIDA_UNICA;
-                            puntajeTotal++;
-                        } else if (estadoTxt.toUpperCase().startsWith("VACIA")) {
+                            logs.add(new JudgeLogEntry(jugador, cat, "IA marcó SI/VALIDA"));
+                        } else if (e.equals("VACIA")) {
                             estadoEnum = JudgeResult.EstadoRespuesta.VACIA;
+                            logs.add(new JudgeLogEntry(jugador, cat, "IA marcó VACIA"));
                         } else {
                             estadoEnum = JudgeResult.EstadoRespuesta.INVALIDA;
+                            logs.add(new JudgeLogEntry(jugador, cat, "IA marcó NO/INVALIDA"));
                         }
 
                         estadosJugador.put(cat, estadoEnum);
@@ -79,21 +84,15 @@ public class OpenAiJudgeStrategy implements JudgeStrategy {
                 } catch (Exception ignored) {
                 }
             }
-
-            if (l.startsWith("Puntaje total:")) {
-                try {
-                    puntajeTotal = Integer.parseInt(
-                            l.replace("Puntaje total:", "").trim()
-                    );
-                } catch (Exception ignored) {
-                }
-            }
         }
 
-        puntajes.put(jugador, puntajeTotal);
+        // No aplicamos fallback automático: la IA debe confirmar existencia y pertenencia. Si duda o marca NO,
+        // la respuesta será considerada INVALIDA.
+
+        // Devolvemos puntajes vacíos; la lógica de puntaje por categoría la realiza SinglePlayerGameService
+        puntajes.put(jugador, 0);
         estados.put(jugador, estadosJugador);
 
-        // Logs vacíos por ahora (no los usás en la UI)
         return new JudgeResult(puntajes, estados, logs);
     }
 }
