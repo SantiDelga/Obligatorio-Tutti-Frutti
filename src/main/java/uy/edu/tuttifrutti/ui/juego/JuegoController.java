@@ -169,6 +169,11 @@ public class JuegoController {
 
         // Limpiar UI
         resultadoArea.clear();
+        // Asegurarnos que use el estilo por defecto (texto blanco sobre fondo oscuro)
+        resultadoArea.getStyleClass().remove("result-area-final");
+        if (!resultadoArea.getStyleClass().contains("result-area")) {
+            resultadoArea.getStyleClass().add("result-area");
+        }
         camposCategorias.forEach(tf -> tf.setText(""));
 
         // Timer
@@ -225,6 +230,18 @@ public class JuegoController {
         rendirseButton.setDisable(false);
     }
 
+    @FXML
+    private void onSalir() {
+        // Al presionar SALIR desde la cabecera: detenemos timers y volvemos a la pantalla de configuración
+        if (timer != null) timer.stop();
+        // Optionally clear the current partida in session (keeps user flow consistent)
+        try {
+            SessionContext.getInstance().setPartidaActual(null);
+        } catch (Exception ignored) {
+        }
+        uy.edu.tuttifrutti.app.SceneManager.getInstance().showConfigSala();
+    }
+
     // -----------------------------------------------------------------
     //                      LÓGICA FINALIZAR RONDA
     // -----------------------------------------------------------------
@@ -239,6 +256,9 @@ public class JuegoController {
 
         int numeroRondaActual = partida.getRondaActual();
 
+        // Declaramos aquí para usar después sin volver a avanzar la ronda
+        boolean hayMasRondas = false;
+
         try {
             SinglePlayerRoundResult result =
                     gameService.evaluarRonda(letraLabel.getText().charAt(0), respuestas);
@@ -246,20 +266,22 @@ public class JuegoController {
             // 1) Sumamos puntaje de esta ronda al acumulado de la partida
             partida.sumarPuntajeRonda(result.getPuntajeTotal());
 
-            // 2) ¿Hay más rondas?
-            boolean hayMasRondas = partida.avanzarRonda();
+            // 2) Avanzamos UNA sola vez y guardamos si hay más rondas
+            hayMasRondas = partida.avanzarRonda();
 
             // 3) Mostrar resultado (ronda + acumulado + si es final o no)
             mostrarResultadoRonda(result, numeroRondaActual, hayMasRondas);
 
-            // 4) Si hay más rondas, pasamos automáticamente a la siguiente
-            if (hayMasRondas) {
-                iniciarNuevaRonda();
-            } else {
-                // Última ronda: deshabilitamos botones de juego
+            // 4) Si es la última ronda: deshabilitamos botones de juego
+            if (!hayMasRondas) {
                 unbindTuttiFrutti();
                 tuttiFruttiButton.setDisable(true);
                 rendirseButton.setDisable(true);
+                // Aplicar estilo de resultado final (fondo claro + texto negro)
+                resultadoArea.getStyleClass().remove("result-area");
+                if (!resultadoArea.getStyleClass().contains("result-area-final")) {
+                    resultadoArea.getStyleClass().add("result-area-final");
+                }
             }
 
         } catch (Exception e) {
@@ -276,9 +298,8 @@ public class JuegoController {
         unbindTuttiFrutti();
         tuttiFruttiButton.setDisable(true);
 
-        // ⛔ Si esta NO es la última ronda → pasar a la siguiente
-        if (partida.avanzarRonda()) {
-            // pequeña pausa opcional
+        // Si hay más rondas → esperamos un momento y pasamos a la siguiente
+        if (hayMasRondas) {
             new Timer().schedule(new TimerTask() {
                 @Override
                 public void run() {
