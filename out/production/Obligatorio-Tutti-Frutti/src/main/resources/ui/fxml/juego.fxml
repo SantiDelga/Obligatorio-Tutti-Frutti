@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="uy.edu.tuttifrutti.ui.juego.JuegoController"
+            stylesheets="@../css/tutti-frutti.css">
+
+    <top>
+        <HBox spacing="20.0" alignment="CENTER" BorderPane.alignment="CENTER">
+            <children>
+                <Label text="TUTTI FRUTTI" styleClass="title-label"/>
+                <Pane HBox.hgrow="ALWAYS"/>
+                <Label text="Letra:" styleClass="pill-label"/>
+                <Label fx:id="letraLabel" text="A" styleClass="pill-label"/>
+            </children>
+        </HBox>
+    </top>
+
+    <left>
+        <VBox spacing="10.0" alignment="TOP_LEFT" BorderPane.alignment="CENTER">
+            <children>
+                <Label text="Jugador actual:" styleClass="pill-label"/>
+                <!-- En versiones futuras se puede listar jugadores -->
+            </children>
+        </VBox>
+    </left>
+
+    <center>
+        <VBox spacing="20.0" alignment="CENTER" BorderPane.alignment="CENTER">
+            <children>
+                <GridPane fx:id="categoriasGrid" hgap="10.0" vgap="10.0">
+                    <!-- Se llena desde el controlador -->
+                </GridPane>
+                <HBox spacing="10.0" alignment="CENTER">
+                    <children>
+                        <Label text="Tiempo" styleClass="pill-label"/>
+                        <ProgressBar fx:id="tiempoBar" prefWidth="300.0"/>
+                    </children>
+                </HBox>
+                <HBox spacing="20.0" alignment="CENTER">
+                    <children>
+                        <Button fx:id="tuttiFruttiButton"
+                                text="TUTTI FRUTTI"
+                                onAction="#onTuttiFrutti"
+                                styleClass="tutti-button"/>
+                        <Button fx:id="rendirseButton"
+                                text="ME RINDO"
+                                onAction="#onRendirse"
+                                styleClass="tutti-button"/>
+                        <Button text="REINTENTAR"
+                                onAction="#onReintentar"
+                                styleClass="tutti-button"/>
+                    </children>
+                </HBox>
+            </children>
+        </VBox>
+    </center>
+
+    <right>
+        <VBox spacing="10.0" BorderPane.alignment="CENTER">
+            <children>
+                <Label text="Resultado" styleClass="pill-label"/>
+                <TextArea fx:id="resultadoArea" prefWidth="250.0" prefHeight="400.0"
+                          wrapText="true"
+                          styleClass="result-area"/>
+            </children>
+        </VBox>
+    </right>
+</BorderPane>

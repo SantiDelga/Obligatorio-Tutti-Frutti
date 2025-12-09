@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+
+<StackPane xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="uy.edu.tuttifrutti.ui.menu.MenuPrincipalController"
+           prefWidth="500.0" prefHeight="650.0">
+
+    <!-- Fondo degradé viene de .root en el CSS -->
+
+    <children>
+        <!-- Tarjeta central, igual tamaño que en el login -->
+        <BorderPane prefWidth="340.0" prefHeight="460.0"
+                    maxWidth="340.0" maxHeight="460.0"
+                    styleClass="main-card">
+            <center>
+
+                <!-- Contenido del menú -->
+                <VBox BorderPane.alignment="CENTER"
+                      spacing="25"
+                      alignment="CENTER"
+                      styleClass="login-content">
+
+                    <!-- Mismo logo que en el login -->
+                    <ImageView fitWidth="260.0" preserveRatio="true">
+                        <image>
+                            <Image url="@../images/logo-tuttifrutti.png"/>
+                        </image>
+                    </ImageView>
+
+                    <Button text="JUGAR"
+                            maxWidth="320.0"
+                            prefHeight="50.0"
+                            onAction="#onJugar"
+                            styleClass="tutti-button"/>
+
+                    <Button text="CONFIGURACIÓN"
+                            maxWidth="320.0"
+                            prefHeight="50.0"
+                            onAction="#onConfigurar"
+                            styleClass="tutti-button"/>
+                </VBox>
+            </center>
+        </BorderPane>
+    </children>
+</StackPane>
