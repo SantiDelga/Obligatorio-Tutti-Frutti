@@ -45,7 +45,7 @@
 
                 <!-- Botón SALIR -->
                 <Button text="SALIR X"
-                        onAction="#onRendirse"
+                        onAction="#onSalir"
                         styleClass="pill-button-danger"/>
             </children>
         </HBox>
