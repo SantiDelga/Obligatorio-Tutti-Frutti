@@ -74,6 +74,11 @@ public class PartidaContext {
         return puntajeAcumulado;
     }
 
+    public void setLetraActual(String letraActual) {
+        this.letraActual = letraActual;
+    }
+
+
     // ---------- LÓGICA DE PARTIDA ----------
 
     /** Avanza a la siguiente ronda si es posible. Devuelve true si avanzó, false si ya no hay más. */

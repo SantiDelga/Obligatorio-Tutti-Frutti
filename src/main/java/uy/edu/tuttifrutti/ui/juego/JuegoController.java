@@ -1,5 +1,7 @@
 package uy.edu.tuttifrutti.ui.juego;
 
+import javafx.application.Platform;
+import uy.edu.tuttifrutti.infrastructure.net.MultiplayerClient;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.beans.binding.BooleanBinding;
@@ -16,6 +18,8 @@ import uy.edu.tuttifrutti.domain.config.GameConfig;
 import uy.edu.tuttifrutti.domain.juego.Categoria;
 import uy.edu.tuttifrutti.domain.juego.Jugador;
 import uy.edu.tuttifrutti.domain.juez.JudgeResult;
+import java.util.ArrayList;
+import java.util.List;
 
 import java.util.*;
 import java.util.logging.Level;
@@ -61,6 +65,13 @@ public class JuegoController {
     // Guardamos la binding para poder unbind/rebind cuando sea necesario
     private BooleanBinding todosValidosBinding;
 
+    private boolean esMultijugador;
+    private MultiplayerClient multiplayerClient;
+
+    private boolean rondaEnviada = false;
+
+
+
     // -----------------------------------------------------------------
     //                      INIT DEL CONTROLADOR
     // -----------------------------------------------------------------
@@ -72,6 +83,8 @@ public class JuegoController {
         if (partida == null) {
             throw new IllegalStateException("Error: PartidaContext es null. No abriste la partida desde la Config.");
         }
+
+        esMultijugador = (partida.getModo() == PartidaContext.ModoPartida.MULTIJUGADOR);
 
         GameConfig config = partida.getGameConfig();
 
@@ -86,7 +99,11 @@ public class JuegoController {
         configurarHabilitadoTuttiFrutti();
 
         // 5) Arrancamos la primera ronda
-        iniciarNuevaRonda();
+        if (esMultijugador) {
+            configurarMultijugador();
+        } else {
+            iniciarNuevaRonda();
+        }
     }
 
     // -----------------------------------------------------------------
@@ -161,15 +178,24 @@ public class JuegoController {
     //                      LÓGICA DE UNA RONDA
     // -----------------------------------------------------------------
     private void iniciarNuevaRonda() {
+        // Sortea letra localmente
+        String letra = partida.sortearLetra();
+        if (letra == null || letra.isBlank()) {
+            letra = "A";
+        }
+        prepararRondaConLetra(letra);
+    }
+
+    private void prepararRondaConLetra(String letra) {
 
         // Ronda actual
         rondaLabel.setText("Ronda: " + partida.getRondaActual() + "/" + partida.getRondasTotales());
 
         // Letra sorteada desde PartidaContext
-        String letra = partida.sortearLetra();
         if (letra == null || letra.isBlank()) {
             letra = "A"; // fallback defensivo
         }
+        partida.setLetraActual(letra);
         letraLabel.setText(letra.toUpperCase());
 
         // Limpiar UI
@@ -179,7 +205,18 @@ public class JuegoController {
         if (!resultadoArea.getStyleClass().contains("result-area")) {
             resultadoArea.getStyleClass().add("result-area");
         }
-        camposCategorias.forEach(tf -> tf.setText(""));
+
+        // 👉 Nueva ronda: habilitamos campos y limpiamos texto
+        camposCategorias.forEach(tf -> {
+            tf.setDisable(false);
+            tf.setText("");
+        });
+
+        // 👉 Reset de botones/estado de ronda
+        rondaEnviada = false;
+        rendirseButton.setDisable(false);
+        reintentarButton.setVisible(false);
+        reintentarButton.setManaged(false);
 
         // Timer
         tiempoRestante = partida.getGameConfig().getDuracionSegundos();
@@ -209,6 +246,16 @@ public class JuegoController {
         timer.setCycleCount(duracion);
         timer.playFromStart();
     }
+
+    private void detenerTimer() {
+        try {
+            if (timer != null) {
+                timer.stop();
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
 
     // -----------------------------------------------------------------
     //                      BOTONES JUEGO
@@ -251,6 +298,10 @@ public class JuegoController {
     //                      LÓGICA FINALIZAR RONDA
     // -----------------------------------------------------------------
     private void finalizarRonda(boolean fueTuttiFrutti) {
+
+        if (esMultijugador && multiplayerClient != null) {
+            enviarRespuestasAlServidor(fueTuttiFrutti);
+        }
 
         // Log para usar el parámetro y mejorar trazabilidad
         LOGGER.fine("finalizarRonda called, fueTuttiFrutti=" + fueTuttiFrutti);
@@ -308,22 +359,30 @@ public class JuegoController {
 
         // Si hay más rondas → esperamos un momento y pasamos a la siguiente
         if (hayMasRondas) {
-            new Timer().schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    javafx.application.Platform.runLater(() -> {
-                        iniciarNuevaRonda();
-                        // restauramos binding para que el boton vuelva a comportarse automáticamente
-                        bindTuttiFrutti();
-                    });
+            if (esMultijugador && multiplayerClient != null) {
+                // 👉 MODO MULTIJUGADOR:
+                // Pedimos al servidor que inicie la próxima ronda para la sala actual.
+                String salaId = SessionContext.getInstance().getSalaActualId();
+                if (salaId == null || salaId.isBlank()) {
+                    salaId = "default";
                 }
-            }, 800);
+                multiplayerClient.send("START_ROUND|" + salaId);
+                // NO llamamos a iniciarNuevaRonda(): cuando llegue ROUND_START,
+                // se ejecuta manejarRoundStart(...) y ahí se llama a prepararRondaConLetra(...)
+            } else {
+                // 👉 SINGLEPLAYER: comportamiento anterior
+                new Timer().schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        javafx.application.Platform.runLater(() -> {
+                            iniciarNuevaRonda();
+                            bindTuttiFrutti();
+                        });
+                    }
+                }, 800);
+            }
         }
-        // 🟩 Si esta era la última ronda → mostrar el botón de reintentar
-        else {
-            reintentarButton.setVisible(true);
-            reintentarButton.setManaged(true);
-        }
+
     }
 
     // -----------------------------------------------------------------
@@ -445,4 +504,176 @@ public class JuegoController {
 
         resultadoArea.setText(sb.toString());
     }
+
+    private void configurarMultijugador() {
+        multiplayerClient = SessionContext.getInstance().getMultiplayerClient();
+        if (multiplayerClient == null) {
+            LOGGER.warning("MultiplayerClient es null; se comportará como singleplayer");
+            esMultijugador = false;
+            iniciarNuevaRonda();
+            return;
+        }
+
+        // Listener de mensajes mientras estamos en la pantalla de juego
+        SessionContext.getInstance().setServerMessageListener(msg -> {
+            if (msg.startsWith("ROUND_START|")) {
+                Platform.runLater(() -> manejarRoundStart(msg));
+            } else if (msg.startsWith("ROUND_RESULT|")) {
+                Platform.runLater(() -> manejarRoundResult(msg));
+            } else if (msg.startsWith("SCOREBOARD|")) {
+                Platform.runLater(() -> manejarScoreboard(msg));
+            } else if (msg.startsWith("ROUND_FORCE_END|")) {
+                Platform.runLater(() -> manejarRoundForceEnd(msg));
+            } else {
+                LOGGER.info("[Juego] Mensaje no manejado: " + msg);
+            }
+        });
+
+
+        // Pedimos al servidor que arranque una ronda para la sala actual
+        String salaId = SessionContext.getInstance().getSalaActualId();
+        if (salaId == null || salaId.isBlank()) {
+            salaId = "default";
+        }
+        multiplayerClient.send("START_ROUND|" + salaId);
+    }
+
+    private void manejarRoundStart(String msg) {
+        // ROUND_START|X
+        String[] parts = msg.split("\\|", -1);
+        if (parts.length < 2) return;
+        String letraStr = parts[1].trim();
+        if (letraStr.isEmpty()) return;
+        String letra = letraStr.substring(0, 1).toUpperCase();
+
+        prepararRondaConLetra(letra);
+    }
+
+    private void manejarRoundResult(String msg) {
+        // ROUND_RESULT|textoLibre
+        String texto = msg.substring("ROUND_RESULT|".length());
+        if (texto == null) texto = "";
+        resultadoArea.appendText("\n\n[Servidor] " + texto + "\n");
+    }
+
+    private void enviarRespuestasAlServidor(boolean fueTuttiFrutti) {
+        String salaId = SessionContext.getInstance().getSalaActualId();
+        if (salaId == null || salaId.isBlank()) {
+            salaId = "default";
+        }
+        String nombre = SessionContext.getInstance().getNombreJugadorActual();
+        if (nombre == null || nombre.isBlank()) {
+            nombre = "Anonimo";
+        }
+
+        GameConfig config = partida.getGameConfig();
+        StringBuilder sb = new StringBuilder();
+
+        // payload = letra|cat1=resp1;cat2=resp2;...
+        String letra = partida.getLetraActual();
+        if (letra == null || letra.isBlank()) {
+            letra = letraLabel.getText();
+        }
+        if (letra == null) letra = "A";
+
+        List<Categoria> categorias = config.getCategoriasActivas();
+        for (int i = 0; i < categorias.size(); i++) {
+            if (i > 0) sb.append(";");
+            Categoria cat = categorias.get(i);
+            String resp = camposCategorias.get(i).getText();
+            if (resp == null) resp = "";
+            // evitamos meter | o ; en la respuesta
+            resp = resp.replace("|", " ").replace(";", " ");
+            sb.append(cat.getNombre()).append("=").append(resp);
+        }
+
+        String payload = sb.toString();
+        String flag = fueTuttiFrutti ? "TUTTI" : "RENDIRSE";
+
+        // NUEVO FORMATO:
+        // SUBMIT_RONDA|idSala|nombre|letra|FLAG|Categoria=resp;Categoria=resp;...
+        multiplayerClient.send(
+                "SUBMIT_RONDA|" + salaId + "|" + nombre + "|" + letra + "|" + flag + "|" + payload
+        );
+
+        rondaEnviada = true;
+    }
+
+    private void manejarScoreboard(String msg) {
+        // Formato: SCOREBOARD|Nombre1=10;Nombre2=7;...
+        String data = msg.substring("SCOREBOARD|".length()).trim();
+        if (data.isEmpty()) {
+            return;
+        }
+
+        String[] tokens = data.split(";");
+        List<String> lineas = new ArrayList<>();
+
+        for (String token : tokens) {
+            if (token.isBlank()) continue;
+            String[] kv = token.split("=", 2);
+            String nombre = kv[0].trim();
+            int puntos = 0;
+            if (kv.length > 1) {
+                try {
+                    puntos = Integer.parseInt(kv[1].trim());
+                } catch (NumberFormatException ignored) { }
+            }
+            lineas.add(nombre + " - " + puntos + " pts");
+        }
+
+        // Ordenamos de mayor a menor puntaje
+        lineas.sort((a, b) -> {
+            int pa = extraerPuntos(a);
+            int pb = extraerPuntos(b);
+            return Integer.compare(pb, pa); // descendente
+        });
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n\n[Ranking global]\n");
+        int pos = 1;
+        for (String linea : lineas) {
+            sb.append(pos).append(". ").append(linea).append("\n");
+            pos++;
+        }
+
+        resultadoArea.appendText(sb.toString());
+    }
+
+    private int extraerPuntos(String linea) {
+        // espera formato "Nombre - X pts"
+        int idxDash = linea.lastIndexOf('-');
+        int idxPts = linea.lastIndexOf("pts");
+        if (idxDash == -1 || idxPts == -1 || idxPts <= idxDash) return 0;
+        String numStr = linea.substring(idxDash + 1, idxPts).trim();
+        try {
+            return Integer.parseInt(numStr);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private void manejarRoundForceEnd(String msg) {
+        // ROUND_FORCE_END|NombreJugador
+        String nombre = msg.substring("ROUND_FORCE_END|".length()).trim();
+        if (nombre.isEmpty()) {
+            nombre = "Otro jugador";
+        }
+
+        // Podés mostrarlo en el resultadoArea o en un label
+        resultadoArea.appendText("\n\n[Tutti Frutti] La ronda fue finalizada por " + nombre + ".\n");
+
+        // Cortamos el timer y deshabilitamos inputs
+        detenerTimer();
+        camposCategorias.forEach(tf -> tf.setDisable(true));
+        // si tenés botón de TUTTI y rendirse:
+        // btnTuttiFrutti.setDisable(true);
+        // btnRendirse.setDisable(true);
+
+        // Si ESTE cliente todavía no envió sus respuestas, las mandamos como "rendirse"
+        if (!rondaEnviada) {
+            finalizarRonda(false); // esto llama enviarRespuestasAlServidor(false)
+        }
+    }
+
 }

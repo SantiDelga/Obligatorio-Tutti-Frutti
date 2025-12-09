@@ -292,3 +292,83 @@
     -fx-background-radius: 20;
     -fx-border-radius: 20;
 }
+
+/* Barra de búsqueda de salas */
+.search-field {
+    -fx-background-color: rgba(0, 0, 0, 0.25);
+    -fx-background-radius: 25;
+    -fx-text-fill: #ffffff;
+    -fx-prompt-text-fill: rgba(255,255,255,0.55);
+    -fx-padding: 6 14 6 14;
+    -fx-border-radius: 25;
+    -fx-border-color: rgba(255,255,255,0.35);
+    -fx-border-width: 1;
+}
+
+.search-icon {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 16px;
+}
+
+/* ScrollPane del grid de salas */
+.panel-scroll {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+/* Tarjetas de salas */
+.sala-card {
+    -fx-background-color: rgba(0, 0, 0, 0.28);
+    -fx-background-radius: 20;
+    -fx-padding: 10 14 10 14;
+    -fx-spacing: 4;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 8, 0.1, 0, 2);
+}
+
+.sala-card:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.36);
+}
+
+.sala-card-selected {
+    -fx-border-color: #ffffff;
+    -fx-border-width: 2;
+    -fx-border-radius: 20;
+    -fx-background-color: linear-gradient(to bottom,
+        rgba(255,255,255,0.15),
+        rgba(0,0,0,0.4)
+    );
+}
+
+/* Chips de temas y letras */
+.categoria-chip, .letra-chip {
+    -fx-background-radius: 18;
+    -fx-padding: 5 12 5 12;
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 11px;
+    -fx-background-color: rgba(0, 0, 0, 0.35);
+}
+
+.letra-chip {
+    -fx-font-weight: bold;
+}
+
+/* Botones grandes de abajo */
+.tutti-button-grande {
+    -fx-background-color: linear-gradient(to bottom, #39e2ff, #00b3ff);
+    -fx-background-radius: 30;
+    -fx-text-fill: #00324b;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-padding: 10 45 10 45;
+}
+
+.tutti-button-grande:hover {
+    -fx-background-color: linear-gradient(to bottom, #5af0ff, #1ac5ff);
+}
+
+.tutti-button-grande:pressed {
+    -fx-translate-y: 1;
+}
+
+

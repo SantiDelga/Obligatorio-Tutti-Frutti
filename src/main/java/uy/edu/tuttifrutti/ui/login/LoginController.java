@@ -31,7 +31,30 @@ public class LoginController {
         if (nombre.isEmpty()) {
             return;
         }
-        SessionContext.getInstance().setNombreJugadorActual(nombre);
+
+        // Guardamos el nombre en la sesión
+        SessionContext ctx = SessionContext.getInstance();
+        ctx.setNombreJugadorActual(nombre);
+
+        // Listener por defecto: solo loguea lo que llega
+        ctx.setServerMessageListener(msg -> System.out.println("[CLIENT] Recibido: " + msg));
+
+        // 🔌 Conexión al servidor multiplayer + handshake HELLO
+        try {
+            ctx.conectarMultiplayer("localhost", 55555);
+
+            // Enviamos HELLO|NombreJugador al servidor
+            ctx.getMultiplayerClient().send("HELLO|" + nombre);
+
+        } catch (Exception e) {
+            // Si falló la conexión, NO vamos al menú y logueamos el error
+            e.printStackTrace();
+            // Si querés podés agregar un Label en el FXML para mostrar mensaje al usuario
+            return;
+        }
+
+        // Si todo salió bien → vamos al menú principal
         SceneManager.getInstance().showMenuPrincipal();
     }
+
 }

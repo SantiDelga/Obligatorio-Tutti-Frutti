@@ -42,6 +42,11 @@ public class SceneManager {
         setScene("/ui/fxml/config-sala.fxml");
     }
 
+    public void showSalasMultijugador() {
+        setScene("/ui/fxml/salas.fxml");
+    }
+
+
 
     private void setScene(String fxmlPath) {
         try {
