@@ -13,6 +13,7 @@ import uy.edu.tuttifrutti.domain.config.GameConfig;
 import uy.edu.tuttifrutti.domain.juego.Categoria;
 import uy.edu.tuttifrutti.domain.juego.Jugador;
 import uy.edu.tuttifrutti.domain.multiplayer.Sala;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -60,37 +61,33 @@ public class SalasController {
 
         btnUnirme.setDisable(true);
 
+        // Asegurarnos de tener un MultiplayerClient conectado
+        SessionContext ctx = SessionContext.getInstance();
+        MultiplayerClient client = ctx.getMultiplayerClient();
+        if (client == null) {
+            try {
+                // Reutilizamos host/port por defecto; podrías parametrizarlo si lo necesitas
+                ctx.conectarMultiplayer("localhost", 55555);
+                client = ctx.getMultiplayerClient();
+            } catch (IOException e) {
+                System.out.println("[CLIENT][Salas] No se pudo conectar al servidor: " + e.getMessage());
+                salas.clear();
+                dibujarSalasGrid();
+                return;
+            }
+        }
+
         // Pedimos las salas reales al servidor
-        var client = SessionContext.getInstance().getMultiplayerClient();
         if (client != null) {
             client.send("LIST_SALAS");
-        } else {
-            // Fallback: si no hay server, usamos mock local
-            crearSalasMock();
-            dibujarSalasGrid();
         }
     }
 
 
     // ================== MOCK DE SALAS ==================
-    private void crearSalasMock() {
-
-        // categorías simples para todas las salas
-        List<Categoria> categorias = List.of(
-                new Categoria("Apellido"),
-                new Categoria("Animal")
-        );
-
-        GameConfig baseConfig = GameConfig.configDefault(categorias);
-
-        // letras base para todas las salas
-        List<String> letrasBase = List.of("a", "b", "c", "d", "e", "f");
-
-        salas.add(new Sala("1", "Sala 001", 10, 3, baseConfig, 3, letrasBase));
-        salas.add(new Sala("2", "Sala 002", 10, 1, baseConfig, 5, letrasBase));
-        salas.add(new Sala("3", "Sala 003", 10, 5, baseConfig, 7, letrasBase));
-        // podés agregar más si querés llenar el grid
-    }
+    // Eliminado del flujo normal para evitar salas fantasma. Si lo necesitas para pruebas,
+    // podés reactivarlo explícitamente desde código de desarrollo.
+    // private void crearSalasMock() { ... }
 
     private void dibujarSalasGrid() {
         salasGrid.getChildren().clear();
