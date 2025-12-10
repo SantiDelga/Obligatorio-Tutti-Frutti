@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import uy.edu.tuttifrutti.app.SceneManager;
 
 public class JuegoController {
 
@@ -67,7 +68,7 @@ public class JuegoController {
     // Guardamos la binding para poder unbind/rebind cuando sea necesario
     private BooleanBinding todosValidosBinding;
 
-    private boolean esMultijugador;
+    private boolean esMultijugador = false;
     private MultiplayerClient multiplayerClient;
 
     private boolean rondaEnviada = false;
@@ -286,9 +287,45 @@ public class JuegoController {
 
     @FXML
     private void onSalir() {
-        // Al presionar SALIR desde la cabecera: detenemos timers y volvemos a la pantalla de configuración
+        // Siempre detener timer local
         if (timer != null) timer.stop();
-        // Optionally clear the current partida in session (keeps user flow consistent)
+
+        PartidaContext partidaCtx = SessionContext.getInstance().getPartidaActual();
+
+        // Si estamos en modo multijugador, hacemos una desconexión "graciosa"
+        if (partidaCtx != null && partidaCtx.getModo() == PartidaContext.ModoPartida.MULTIJUGADOR) {
+            String salaId = SessionContext.getInstance().getSalaActualId();
+            MultiplayerClient client = SessionContext.getInstance().getMultiplayerClient();
+
+            try {
+                if (client != null) {
+                    // Avisar al servidor que abandonamos la sala actual
+                    if (salaId != null && !salaId.isBlank()) {
+                        client.send("LEAVE_SALA|" + salaId);
+                    } else {
+                        client.send("LEAVE_SALA|");
+                    }
+                    // Cerrar el socket de este cliente (hilo listener muere solo)
+                    client.close();
+                }
+            } catch (Exception e) {
+                // Log simple; no bloqueamos la salida del usuario si hay error de red
+                LOGGER.warning("Error al cerrar conexión multiplayer: " + e.getMessage());
+            }
+
+            // Limpiar estado de sesión relacionado a multijugador
+            SessionContext ctx = SessionContext.getInstance();
+            ctx.setMultiplayerClient(null);
+            ctx.setSalaActualId(null);
+            ctx.setServerMessageListener(null);
+            ctx.limpiarPartida();
+
+            // Volver al menú principal
+            uy.edu.tuttifrutti.app.SceneManager.getInstance().showMenuPrincipal();
+            return;
+        }
+
+        // Comportamiento original para singleplayer: volver a configuración o menú
         try {
             SessionContext.getInstance().setPartidaActual(null);
         } catch (Exception ignored) {

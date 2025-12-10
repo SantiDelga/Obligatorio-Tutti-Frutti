@@ -11,6 +11,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.List;
 import java.util.Random;
 
+import uy.edu.tuttifrutti.domain.config.GameConfig;
+import uy.edu.tuttifrutti.domain.juego.Categoria;
+import java.util.ArrayList;
+
 /**
  * Servidor de juego.
  * Mantiene una lista de salas en memoria y permite:
@@ -86,19 +90,24 @@ public class GameServer {
 
     // ================== SALAS =====================
 
-    /*private void inicializarSalasDummy() {
-        crearSalaInterna("1", "Sala 001", 10, 3, 3, "a-b-c-d-e-f");
-        crearSalaInterna("2", "Sala 002", 10, 1, 5, "a-b-c-d-e-f");
-        crearSalaInterna("3", "Sala 003", 10, 5, 7, "a-b-c-d-e-f");
-    }*/
-
     private void crearSalaInterna(String id, String nombre,
                                   int maxJug, int jugAct,
                                   int rondas, int duracionSegundos,
                                   String temasCsv, String letrasCsv) {
 
+        // Parse temasCsv a GameConfig mínimo
+        List<Categoria> cats = new ArrayList<>();
+        if (temasCsv != null && !temasCsv.isBlank()) {
+            String[] tokens = temasCsv.split(",");
+            for (String t : tokens) {
+                String s = t.trim();
+                if (!s.isEmpty()) cats.add(new Categoria(s));
+            }
+        }
+        GameConfig cfg = GameConfig.configDefault(cats);
+
         SalaInfo info = new SalaInfo(id, nombre, maxJug, jugAct,
-                rondas, duracionSegundos, temasCsv, letrasCsv);
+                rondas, duracionSegundos, temasCsv, letrasCsv, cfg);
         salas.put(id, info);
     }
 
@@ -113,6 +122,10 @@ public class GameServer {
         String temasCsv = "";            // 👈 vacío por ahora
         String letrasCsv = "A,B,C,D,E,F";
 
+        // crear GameConfig por defecto
+        List<Categoria> cats = new ArrayList<>();
+        GameConfig cfg = GameConfig.configDefault(cats);
+
         SalaInfo info = new SalaInfo(
                 id,
                 nombreSala,
@@ -121,7 +134,8 @@ public class GameServer {
                 rondas,
                 duracionSegundos,
                 temasCsv,
-                letrasCsv
+                letrasCsv,
+                cfg
         );
 
         // host entra en la sala
@@ -159,6 +173,19 @@ public class GameServer {
                     && !info.nombresJugadores.contains(nombre)) {
                 info.nombresJugadores.add(nombre);
             }
+
+            // Enviar la configuración oficial de la sala AL CLIENTE que se une
+            // Formato: SALA_CONFIG|idSala|duracion|rondas|temasCsv|letrasCsv|maxJug|puntosValidaUnica|puntosValidaDuplicada
+            String temasCsv = info.temasCsv == null ? "" : info.temasCsv;
+            String letrasCsv = info.letrasCsv == null ? "" : info.letrasCsv;
+            GameConfig cfg = info.config;
+            int dur = info.duracionSegundos;
+            int rnd = info.rondas;
+            int maxJ = info.maxJugadores;
+            int ptsUnica = cfg != null ? cfg.getPuntosValidaUnica() : 1;
+            int ptsDup = cfg != null ? cfg.getPuntosValidaDuplicada() : 1;
+
+            handler.send("SALA_CONFIG|" + idSala + "|" + dur + "|" + rnd + "|" + temasCsv + "|" + letrasCsv + "|" + maxJ + "|" + ptsUnica + "|" + ptsDup);
 
             broadcastLobbyState();
             broadcastSalaState(idSala);
@@ -217,6 +244,9 @@ public class GameServer {
         final String temasCsv;
         final String letrasCsv;
 
+        // Config oficial mantenida en el servidor
+        GameConfig config;
+
         // 👉 clientes (handlers) que están en esta sala
         final List<ClientHandler> handlers = new CopyOnWriteArrayList<>();
         final List<String> nombresJugadores = new CopyOnWriteArrayList<>();
@@ -228,7 +258,8 @@ public class GameServer {
                  int rondas,
                  int duracionSegundos,
                  String temasCsv,
-                 String letrasCsv) {
+                 String letrasCsv,
+                 GameConfig config) {
 
             this.id = id;
             this.nombre = nombre;
@@ -238,6 +269,7 @@ public class GameServer {
             this.duracionSegundos = duracionSegundos;
             this.temasCsv = temasCsv;
             this.letrasCsv = letrasCsv;
+            this.config = config;
         }
 
     }
@@ -347,6 +379,18 @@ public class GameServer {
 
         String id = UUID.randomUUID().toString();
 
+        // Parse temasCsv a Categoria list
+        List<Categoria> cats = new ArrayList<>();
+        if (temasCsv != null && !temasCsv.isBlank()) {
+            String[] tokens = temasCsv.split(",");
+            for (String t : tokens) {
+                String s = t.trim();
+                if (!s.isEmpty()) cats.add(new Categoria(s));
+            }
+        }
+
+        GameConfig cfg = new GameConfig(duracionSegundos, 0, cats, 1, 1);
+
         SalaInfo info = new SalaInfo(
                 id,
                 nombreSala,
@@ -355,8 +399,8 @@ public class GameServer {
                 rondas,
                 duracionSegundos,
                 temasCsv,
-                letrasCsv
-        );
+                letrasCsv,
+                cfg);
 
         if (host != null) {
             info.handlers.add(host);
@@ -365,6 +409,9 @@ public class GameServer {
             if (nombreHost != null && !nombreHost.isBlank()) {
                 info.nombresJugadores.add(nombreHost);
             }
+
+            // enviar la config oficial al host por si la necesita
+            host.send("SALA_CONFIG|" + id + "|" + duracionSegundos + "|" + rondas + "|" + temasCsv + "|" + letrasCsv + "|" + maxJugadores + "|1|1");
         }
 
         salas.put(id, info);
@@ -373,7 +420,20 @@ public class GameServer {
         return id;
     }
 
+    public synchronized void leaveSala(String idSala, ClientHandler handler) {
+        SalaInfo info = salas.get(idSala);
+        if (info == null) {
+            return;
+        }
 
-
-
+        if (info.handlers.remove(handler)) {
+            info.jugadoresActuales = Math.max(0, info.jugadoresActuales - 1);
+            String nombre = handler.getNombreJugador();
+            if (nombre != null) {
+                info.nombresJugadores.remove(nombre);
+            }
+            broadcastLobbyState();
+            broadcastSalaState(idSala);
+        }
+    }
 }

@@ -89,8 +89,9 @@ public class ClientHandler implements Runnable {
             case "CREATE_SALA" -> handleCreateSala(parts);
             case "CREATE_SALA_CFG" -> handleCreateSalaCfg(parts);
             case "JOIN_SALA" -> handleJoinSala(parts);
-            case "START_ROUND" -> handleStartRound(parts);   // 👈 NUEVO
-            case "SUBMIT_RONDA" -> handleSubmitRonda(parts); // 👈 NUEVO
+            case "LEAVE_SALA" -> handleLeaveSala(parts); // nuevo comando
+            case "START_ROUND" -> handleStartRound(parts);
+            case "SUBMIT_RONDA" -> handleSubmitRonda(parts);
             default -> send("ERROR|Comando no reconocido: " + tipo);
         }
     }
@@ -284,5 +285,21 @@ public class ClientHandler implements Runnable {
         send("CREATE_SALA_OK|" + id);
     }
 
+    private void handleLeaveSala(String[] parts) {
+        // LEAVE_SALA|idSala (id opcional, normalmente usamos salaActualId)
+        String idSala = (parts.length >= 2 && !parts[1].isBlank())
+                ? parts[1].trim()
+                : this.salaActualId;
+
+        if (idSala == null || idSala.isBlank()) {
+            send("ERROR|LEAVE_SALA sin sala asociada");
+            return;
+        }
+
+        server.logFromClient(clientId, "Cliente solicita abandonar sala " + idSala);
+        server.leaveSala(idSala, this);
+        this.salaActualId = null;
+        send("LEAVE_SALA_OK|" + idSala);
+    }
 
 }
