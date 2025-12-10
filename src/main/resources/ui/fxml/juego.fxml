@@ -59,21 +59,21 @@
             </padding>
             <children>
 
-                <!-- Panel IZQUIERDO: jugadores (para futuro multi) -->
+                <!-- Panel IZQUIERDO: jugadores conectados -->
                 <VBox spacing="10"
                       prefWidth="220"
                       styleClass="side-panel">
-                    <Label text="JUGADORES" styleClass="panel-title" />
-                    <!-- ListView sin fx:id por ahora (singleplayer) -->
-                    <ListView>
-                        <items>
-                            <FXCollections fx:factory="observableArrayList"
-                                           xmlns:fx="http://javafx.com/fxml">
-                                <String fx:value="Jugador 1"/>
-                            </FXCollections>
-                        </items>
-                    </ListView>
+                    <children>
+                        <Label text="JUGADORES" styleClass="panel-title" />
+
+                        <TextArea fx:id="jugadoresArea"
+                                  editable="false"
+                                  wrapText="true"
+                                  prefHeight="360"
+                                  prefWidth="200" />
+                    </children>
                 </VBox>
+
 
                 <!-- Panel CENTRAL: categorías -->
                 <VBox spacing="15"

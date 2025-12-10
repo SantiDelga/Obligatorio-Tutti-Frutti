@@ -16,6 +16,7 @@ import uy.edu.tuttifrutti.domain.multiplayer.Sala;
 import java.util.ArrayList;
 import java.util.List;
 import javafx.application.Platform;
+import uy.edu.tuttifrutti.infrastructure.net.MultiplayerClient;
 
 public class SalasController {
 
@@ -204,19 +205,10 @@ public class SalasController {
 
     @FXML
     private void onCrearSala() {
-        var ctx = SessionContext.getInstance();
-        var client = ctx.getMultiplayerClient();
-        if (client == null) {
-            System.out.println("[CLIENT] No hay conexión al servidor (onCrearSala)");
-            return;
-        }
-
-        String nombreJugador = ctx.getNombreJugadorActual();
-        String nombreSala = "Sala de " + nombreJugador;
-
-        client.send("CREATE_SALA|" + nombreSala);
-        // El servidor hará broadcast del nuevo LOBBY_STATE,
-        // y tu listener de LOBBY_STATE actualizará la grilla.
+        // Solo seteamos modo y navegamos a la configuración.
+        // NO enviamos nada al servidor todavía.
+        SessionContext.getInstance().setModoConfigActual(PartidaContext.ModoPartida.MULTIJUGADOR);
+        SceneManager.getInstance().showConfigSala();
     }
 
     @FXML

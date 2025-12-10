@@ -219,10 +219,9 @@ public class ConfigSalaController {
             }
         }
 
-        // 3) Crear GameConfig con lo que definiste (podés ajustar puntos si querés)
+        // 3) Crear GameConfig
         int duracionSegundos = comboTiempo.getValue();   // ej: 60
-        int tiempoGracia = 0;                            // por ahora 0 en single
-        // Por defecto una respuesta válida da 1 punto (antes 10)
+        int tiempoGracia = 0;
         int puntosValidaUnica = 1;
         int puntosValidaDuplicada = 1;
 
@@ -234,16 +233,36 @@ public class ConfigSalaController {
                 puntosValidaDuplicada
         );
 
-        // 4) Crear lista de jugadores dummy según comboJugadores
-        int cantJugadores = comboJugadores.getValue();
+        // 4) Crear lista de jugadores según el modo (single o multi)
         List<Jugador> jugadores = new ArrayList<>();
-        for (int i = 1; i <= cantJugadores; i++) {
-            jugadores.add(new Jugador("Jugador " + i));
+
+        PartidaContext.ModoPartida modo =
+                SessionContext.getInstance().getModoConfigActual();
+        if (modo == null) {
+            modo = PartidaContext.ModoPartida.SINGLEPLAYER;
         }
 
-        // 5) Crear PartidaContext (modo singleplayer por ahora)
+        int cantJugadores;
+
+        if (modo == PartidaContext.ModoPartida.MULTIJUGADOR) {
+            // En multi: solo el jugador real (host)
+            String nombre = SessionContext.getInstance().getNombreJugadorActual();
+            if (nombre == null || nombre.isBlank()) {
+                nombre = "Host";
+            }
+            jugadores.add(new Jugador(nombre));
+            cantJugadores = 1;
+        } else {
+            // Singleplayer: cantidad desde el combo
+            cantJugadores = comboJugadores.getValue();
+            for (int i = 1; i <= cantJugadores; i++) {
+                jugadores.add(new Jugador("Jugador " + i));
+            }
+        }
+
+        // 5) Crear PartidaContext con el modo correcto
         PartidaContext partida = new PartidaContext(
-                PartidaContext.ModoPartida.SINGLEPLAYER,
+                modo,
                 config,
                 jugadores,
                 comboRondas.getValue(),
@@ -251,9 +270,51 @@ public class ConfigSalaController {
         );
 
         // 6) Guardar en SessionContext
-        SessionContext.getInstance().setPartidaActual(partida);
+        SessionContext ctx = SessionContext.getInstance();
+        ctx.setPartidaActual(partida);
 
-        // 7) (Opcional) mostrar resumen en el chat
+        // 6b) En MULTIJUGADOR: crear sala en el servidor con la config real
+        if (modo == PartidaContext.ModoPartida.MULTIJUGADOR) {
+            var client = ctx.getMultiplayerClient();
+            if (client != null) {
+                String nombreHost = ctx.getNombreJugadorActual();
+                if (nombreHost == null || nombreHost.isBlank()) {
+                    nombreHost = "Host";
+                }
+                String nombreSala = "Sala de " + nombreHost;
+
+                int maxJug = comboJugadores.getValue();          // capacidad de sala
+                int rondas = comboRondas.getValue();
+                int duracion = duracionSegundos;                 // ya lo calculaste antes
+
+                String temasCsv  = String.join(",", temas);      // mismos temas que usas en config
+                String letrasCsv = String.join(",", letras);
+
+                // Listener temporal para capturar id de la sala
+                ctx.setServerMessageListener(msg -> {
+                    if (msg.startsWith("CREATE_SALA_OK|")) {
+                        String[] p = msg.split("\\|", -1);
+                        if (p.length >= 2) {
+                            ctx.setSalaActualId(p[1].trim());
+                        }
+                        ctx.setServerMessageListener(null);
+                    } else {
+                        System.out.println("[CONFIG] Mensaje no manejado: " + msg);
+                    }
+                });
+
+                client.send(
+                        "CREATE_SALA_CFG|" + nombreSala + "|" +
+                                maxJug + "|" +
+                                rondas + "|" +
+                                duracion + "|" +
+                                temasCsv + "|" +
+                                letrasCsv
+                );
+            }
+        }
+
+        // 7) Mostrar resumen en el chat
         txtChatInfo.setText("Config de la sala:\n" +
                 "- Jugadores: " + cantJugadores + "\n" +
                 "- Rondas: " + comboRondas.getValue() + "\n" +
@@ -265,6 +326,8 @@ public class ConfigSalaController {
         // 8) Ir a la pantalla de juego
         SceneManager.getInstance().showJuego();
     }
+
+
 
     // helper chiquito para armar el texto de temas
     private List<String> temasComoString(List<Categoria> categorias) {

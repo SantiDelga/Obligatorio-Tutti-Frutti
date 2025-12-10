@@ -87,6 +87,7 @@ public class ClientHandler implements Runnable {
             case "HELLO" -> handleHello(parts);
             case "LIST_SALAS" -> handleListSalas();
             case "CREATE_SALA" -> handleCreateSala(parts);
+            case "CREATE_SALA_CFG" -> handleCreateSalaCfg(parts);
             case "JOIN_SALA" -> handleJoinSala(parts);
             case "START_ROUND" -> handleStartRound(parts);   // 👈 NUEVO
             case "SUBMIT_RONDA" -> handleSubmitRonda(parts); // 👈 NUEVO
@@ -120,6 +121,7 @@ public class ClientHandler implements Runnable {
         String id = server.createSala(nombreSala, this);
         this.salaActualId = id;
         send("CREATE_SALA_OK|" + id);
+        server.broadcastSalaState(id);
     }
 
     private void handleJoinSala(String[] parts) {
@@ -132,6 +134,7 @@ public class ClientHandler implements Runnable {
         if (ok) {
             this.salaActualId = idSala;
             send("JOIN_SALA_OK|" + idSala);
+            server.broadcastSalaState(idSala);
         } else {
             send("ERROR|No se pudo unir a la sala " + idSala);
         }
@@ -234,12 +237,52 @@ public class ClientHandler implements Runnable {
         }
     }
 
-
-
-
     void send(String msg) {
         if (out != null) {
             out.println(msg);
         }
     }
+
+    public String getNombreJugador() {
+        return nombreJugador;
+    }
+
+    private void handleCreateSalaCfg(String[] parts) {
+        // CREATE_SALA_CFG|nombreSala|maxJug|rondas|duracionSegundos|temasCsv|letrasCsv
+        if (parts.length < 7) {
+            send("ERROR|CREATE_SALA_CFG formato inválido");
+            return;
+        }
+
+        String nombreSala = parts[1].trim();
+        int maxJug;
+        int rondas;
+        int duracion;
+        try {
+            maxJug   = Integer.parseInt(parts[2].trim());
+            rondas   = Integer.parseInt(parts[3].trim());
+            duracion = Integer.parseInt(parts[4].trim());
+        } catch (NumberFormatException e) {
+            send("ERROR|CREATE_SALA_CFG parámetros numéricos inválidos");
+            return;
+        }
+
+        String temasCsv   = parts[5].trim(); // ej: "Apellido,Animal"
+        String letrasCsv  = parts[6].trim(); // ej: "A,B,C,D"
+
+        String id = server.createSalaCfg(
+                nombreSala,
+                maxJug,
+                rondas,
+                duracion,
+                temasCsv,
+                letrasCsv,
+                this
+        );
+
+        this.salaActualId = id;
+        send("CREATE_SALA_OK|" + id);
+    }
+
+
 }

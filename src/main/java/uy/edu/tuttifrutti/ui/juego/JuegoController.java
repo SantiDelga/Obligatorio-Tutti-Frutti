@@ -53,6 +53,8 @@ public class JuegoController {
     @FXML
     private TextArea resultadoArea;
 
+    @FXML private TextArea jugadoresArea;
+
     private final List<TextField> camposCategorias = new ArrayList<>();
 
     private Timeline timer;
@@ -323,7 +325,9 @@ public class JuegoController {
                     gameService.evaluarRonda(letraLabel.getText().charAt(0), respuestas);
 
             // 1) Sumamos puntaje de esta ronda al acumulado de la partida
-            partida.sumarPuntajeRonda(result.getPuntajeTotal());
+            if (!esMultijugador) {
+                partida.sumarPuntajeRonda(result.getPuntajeTotal());
+            }
 
             // 2) Avanzamos UNA sola vez y guardamos si hay más rondas
             hayMasRondas = partida.avanzarRonda();
@@ -524,6 +528,8 @@ public class JuegoController {
                 Platform.runLater(() -> manejarScoreboard(msg));
             } else if (msg.startsWith("ROUND_FORCE_END|")) {
                 Platform.runLater(() -> manejarRoundForceEnd(msg));
+            } else if (msg.startsWith("SALA_STATE|")) {
+                Platform.runLater(() -> manejarSalaState(msg));
             } else {
                 LOGGER.info("[Juego] Mensaje no manejado: " + msg);
             }
@@ -675,5 +681,23 @@ public class JuegoController {
             finalizarRonda(false); // esto llama enviarRespuestasAlServidor(false)
         }
     }
+
+    private void manejarSalaState(String msg) {
+        // formato: SALA_STATE|idSala|Santi;Agus;Lucas
+        String[] parts = msg.split("\\|", -1);
+        if (parts.length < 3) return;
+
+        String jugadoresStr = parts[2];
+
+        String[] tokens = jugadoresStr.split(";");
+        StringBuilder sb = new StringBuilder("Jugadores conectados:\n");
+
+        for (String nombre : tokens) {
+            sb.append("- ").append(nombre).append("\n");
+        }
+
+        jugadoresArea.setText(sb.toString());
+    }
+
 
 }
