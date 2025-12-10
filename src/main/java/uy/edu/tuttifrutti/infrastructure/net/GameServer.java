@@ -135,11 +135,50 @@ public class GameServer {
 
         salas.put(id, info);
         broadcastLobbyState();
-        broadcastSalaState(id);   // 👈 NUEVO
+        broadcastSalaState(id);   // notificar estado de sala (jugadores)
+        broadcastSalaConfig(id);  // notificar configuración completa
         return id;
     }
 
 
+
+    public synchronized String createSalaCfg(
+            String nombreSala,
+            int maxJugadores,
+            int rondas,
+            int duracionSegundos,
+            String temasCsv,
+            String letrasCsv,
+            ClientHandler host) {
+
+        String id = UUID.randomUUID().toString();
+
+        SalaInfo info = new SalaInfo(
+                id,
+                nombreSala,
+                maxJugadores,
+                0,
+                rondas,
+                duracionSegundos,
+                temasCsv == null ? "" : temasCsv,
+                letrasCsv == null ? "" : letrasCsv
+        );
+
+        if (host != null) {
+            info.handlers.add(host);
+            info.jugadoresActuales++;
+            String nombreHost = host.getNombreJugador();
+            if (nombreHost != null && !nombreHost.isBlank()) {
+                info.nombresJugadores.add(nombreHost);
+            }
+        }
+
+        salas.put(id, info);
+        broadcastLobbyState();
+        broadcastSalaState(id);
+        broadcastSalaConfig(id);
+        return id;
+    }
 
     /** Intenta unir a un jugador a la sala indicada; true si se pudo. */
     public synchronized boolean joinSala(String idSala, ClientHandler handler) {
@@ -212,10 +251,10 @@ public class GameServer {
         final String nombre;
         final int maxJugadores;
         int jugadoresActuales;
-        final int rondas;
-        final int duracionSegundos;
-        final String temasCsv;
-        final String letrasCsv;
+        int rondas;
+        int duracionSegundos;
+        String temasCsv;
+        String letrasCsv;
 
         // 👉 clientes (handlers) que están en esta sala
         final List<ClientHandler> handlers = new CopyOnWriteArrayList<>();
@@ -330,50 +369,66 @@ public class GameServer {
             sb.append(nombre);
         }
 
+        // Añadimos campos de configuración para que los clientes puedan actualizar su UI
+        sb.append("|").append(info.maxJugadores)
+                .append("|").append(info.rondas)
+                .append("|").append(info.duracionSegundos)
+                .append("|").append(info.temasCsv == null ? "" : info.temasCsv)
+                .append("|").append(info.letrasCsv == null ? "" : info.letrasCsv);
+
         String msg = sb.toString();
         for (ClientHandler h : info.handlers) {
             h.send(msg);
         }
     }
 
-    public synchronized String createSalaCfg(
-            String nombreSala,
-            int maxJugadores,
-            int rondas,
-            int duracionSegundos,
-            String temasCsv,
-            String letrasCsv,
-            ClientHandler host) {
-
-        String id = UUID.randomUUID().toString();
-
-        SalaInfo info = new SalaInfo(
-                id,
-                nombreSala,
-                maxJugadores,
-                0,                 // jugadoresActuales
-                rondas,
-                duracionSegundos,
-                temasCsv,
-                letrasCsv
-        );
-
-        if (host != null) {
-            info.handlers.add(host);
-            info.jugadoresActuales++;
-            String nombreHost = host.getNombreJugador();
-            if (nombreHost != null && !nombreHost.isBlank()) {
-                info.nombresJugadores.add(nombreHost);
-            }
-        }
-
-        salas.put(id, info);
-        broadcastLobbyState();
-        broadcastSalaState(id); // si usas SALA_STATE
-        return id;
+    private String buildSalaConfigMessage(SalaInfo info) {
+        if (info == null) return "";
+        return "CONFIG_SALA|" + info.id + "|" + info.maxJugadores + "|" + info.rondas + "|"
+                + info.duracionSegundos + "|"
+                + (info.temasCsv == null ? "" : info.temasCsv) + "|"
+                + (info.letrasCsv == null ? "" : info.letrasCsv);
     }
 
+    public void broadcastSalaConfig(String idSala) {
+        SalaInfo info = salas.get(idSala);
+        if (info == null) return;
+        String msg = buildSalaConfigMessage(info);
+        for (ClientHandler h : clients) {
+            // enviamos a todos los clientes (para que el lobby se actualice)
+            h.send(msg);
+        }
+    }
 
+    /** Actualiza la config de una sala existente y notifica los cambios. */
+    public synchronized boolean updateSalaCfg(String idSala,
+                                             int maxJugadores,
+                                             int rondas,
+                                             int duracionSegundos,
+                                             String temasCsv,
+                                             String letrasCsv) {
+        SalaInfo info = salas.get(idSala);
+        if (info == null) return false;
 
+        // Validaciones simples (puedes ampliar según necesidades)
+        if (rondas <= 0 || duracionSegundos <= 0 || maxJugadores < 2) {
+            return false;
+        }
+
+        // Ajustamos jugadoresActuales si el maxJug fue reducido
+        info.jugadoresActuales = Math.min(info.jugadoresActuales, maxJugadores);
+
+        // Actualizamos campos de configuración
+        info.rondas = rondas;
+        info.duracionSegundos = duracionSegundos;
+        info.temasCsv = temasCsv == null ? "" : temasCsv;
+        info.letrasCsv = letrasCsv == null ? "" : letrasCsv;
+
+        // Notificamos a todos
+        broadcastLobbyState();
+        broadcastSalaConfig(idSala);
+        broadcastSalaState(idSala);
+        return true;
+    }
 
 }

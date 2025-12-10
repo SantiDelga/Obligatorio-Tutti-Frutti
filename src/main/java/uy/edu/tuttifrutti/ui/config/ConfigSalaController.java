@@ -273,6 +273,12 @@ public class ConfigSalaController {
         SessionContext ctx = SessionContext.getInstance();
         ctx.setPartidaActual(partida);
 
+        // Si es SINGLEPLAYER, navegamos inmediatamente a la pantalla de juego
+        if (modo == PartidaContext.ModoPartida.SINGLEPLAYER) {
+            System.out.println("[CONFIG] Navegando a pantalla de juego (singleplayer)");
+            javafx.application.Platform.runLater(() -> SceneManager.getInstance().showJuego());
+        }
+
         // 6b) En MULTIJUGADOR: crear sala en el servidor con la config real
         if (modo == PartidaContext.ModoPartida.MULTIJUGADOR) {
             var client = ctx.getMultiplayerClient();
@@ -298,6 +304,8 @@ public class ConfigSalaController {
                             ctx.setSalaActualId(p[1].trim());
                         }
                         ctx.setServerMessageListener(null);
+                        // Una vez que el servidor confirmó la creación de la sala, navegamos a la pantalla de juego
+                        javafx.application.Platform.runLater(() -> SceneManager.getInstance().showJuego());
                     } else {
                         System.out.println("[CONFIG] Mensaje no manejado: " + msg);
                     }
@@ -311,6 +319,10 @@ public class ConfigSalaController {
                                 temasCsv + "|" +
                                 letrasCsv
                 );
+                // NO navegamos inmediatamente: el listener se encargará de abrir la pantalla de juego cuando llegue CREATE_SALA_OK.
+            } else {
+                // Si no hay cliente, mostramos el juego localmente (singleplayer fallback)
+                SceneManager.getInstance().showJuego();
             }
         }
 
@@ -323,8 +335,8 @@ public class ConfigSalaController {
                 "- Letras: " + String.join(", ", letras) + "\n\n" +
                 "Partida creada. Pasando a la pantalla de juego...");
 
-        // 8) Ir a la pantalla de juego
-        SceneManager.getInstance().showJuego();
+        // 8) Si estamos en modo multijugador con cliente, la navegación a juego se hará cuando el servidor responda CREATE_SALA_OK.
+        // Si no hay cliente, ya navegamos arriba.
     }
 
 

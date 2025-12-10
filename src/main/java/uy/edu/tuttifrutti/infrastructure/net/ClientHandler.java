@@ -88,6 +88,7 @@ public class ClientHandler implements Runnable {
             case "LIST_SALAS" -> handleListSalas();
             case "CREATE_SALA" -> handleCreateSala(parts);
             case "CREATE_SALA_CFG" -> handleCreateSalaCfg(parts);
+            case "UPDATE_SALA_CFG" -> handleUpdateSalaCfg(parts);
             case "JOIN_SALA" -> handleJoinSala(parts);
             case "START_ROUND" -> handleStartRound(parts);   // 👈 NUEVO
             case "SUBMIT_RONDA" -> handleSubmitRonda(parts); // 👈 NUEVO
@@ -282,6 +283,37 @@ public class ClientHandler implements Runnable {
 
         this.salaActualId = id;
         send("CREATE_SALA_OK|" + id);
+    }
+
+    private void handleUpdateSalaCfg(String[] parts) {
+        // UPDATE_SALA_CFG|idSala|maxJug|rondas|duracionSegundos|temasCsv|letrasCsv
+        if (parts.length < 7) {
+            send("ERROR|UPDATE_SALA_CFG formato inválido");
+            return;
+        }
+
+        String idSala = parts[1].trim();
+        int maxJug;
+        int rondas;
+        int duracion;
+        try {
+            maxJug = Integer.parseInt(parts[2].trim());
+            rondas = Integer.parseInt(parts[3].trim());
+            duracion = Integer.parseInt(parts[4].trim());
+        } catch (NumberFormatException e) {
+            send("ERROR|UPDATE_SALA_CFG parámetros numéricos inválidos");
+            return;
+        }
+
+        String temasCsv = parts[5].trim();
+        String letrasCsv = parts[6].trim();
+
+        boolean ok = server.updateSalaCfg(idSala, maxJug, rondas, duracion, temasCsv, letrasCsv);
+        if (ok) {
+            send("UPDATE_SALA_OK|" + idSala);
+        } else {
+            send("ERROR|UPDATE_SALA_CFG no se pudo aplicar la configuración");
+        }
     }
 
 
